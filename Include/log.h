@@ -7,4 +7,6 @@
   if (!(condition)) {                                                                              \
     spdlog::error("Assert fail in File::{}->Line::{}", __FILE__, __LINE__);                        \
     exit(-1);                                                                                      \
-  }\
+  }
+
+#define MTX_CHECK(res) MTX_ASSERT(res == nri::Result::SUCCESS)

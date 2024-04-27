@@ -1,16 +1,16 @@
 #include <iostream>
 
 #include "NRIFramework.h"
+#include "renderer.h"
+using namespace MTX;
 
-class myApp : public SampleBase {
-  bool Initialize(nri::GraphicsAPI graphicsAPI) override { return false; };
-  void PrepareFrame(uint32_t frameIndex) override{};
-  void RenderFrame(uint32_t frameIndex) override{};
+int main(int argc, char** argv) {
+  SampleBase* rayTracingRenderer = new MTXRtRenderer;
+  std::cout << "test" << std::endl;
+  bool result = rayTracingRenderer->Create(argc, argv, "MTXRenderer");
+  if (result) { rayTracingRenderer->RenderLoop(); }
 
-  std::string m_appName = "fuck";
-};
-
-int main() {
-  myApp* app = new myApp;
-  std::cout << "tset" << std::endl;
+  delete rayTracingRenderer;
+  rayTracingRenderer = nullptr;
+  return result ? 0 : 1;
 }

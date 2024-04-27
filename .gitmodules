@@ -13,6 +13,3 @@
 [submodule "External/googleTest"]
 	path = External/googleTest
 	url = https://github.com/google/googletest.git
-[submodule "external/rttr"]
-	path = external/rttr
-	url = https://github.com/rttrorg/rttr.git

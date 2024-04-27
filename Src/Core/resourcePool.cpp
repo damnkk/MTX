@@ -3,15 +3,13 @@
 
 namespace MTX {
 
-void MtxTexture::destroy(MTXInterface* interface) {
-  MTX_ASSERT(interface == nullptr);
-  interface->DestroyTexture(*tex);
-  interface->FreeMemory(*mem);
-}
+TextureAllocator::TextureAllocator()
+    : _uuidCreater(uuids::uuid::from_string("47183823-2574-4bfd-b411-99ed177d3e43").value()) {}
 
 TextureAllocator::TextureAllocator(MTXInterface* interface)
     : _gfxInterface(interface),
       _uuidCreater(uuids::uuid::from_string("47183823-2574-4bfd-b411-99ed177d3e43").value()) {
+  _gfxInterface = interface;
   _pool.setInterFace(interface);
 }
 
@@ -70,26 +68,26 @@ std::shared_ptr<MtxTexture> TextureAllocator::allocateTexture(MtxTextureDesc& de
 }
 
 void TextureAllocator::releaseTexture(std::shared_ptr<MtxTexture> texture) {
-  texture->destroy(_gfxInterface);
+  //texture->destroy(_gfxInterface);
   _pool.release(texture->_uid);
 }
 
 void TextureAllocator::releaseTexture(uuids::uuid uuid) {
-  auto resPtr = _pool.accessObject(uuid);
-  resPtr->destroy(_gfxInterface);
+  // auto resPtr = _pool.accessObject(uuid);
+  // resPtr->destroy(_gfxInterface);
   _pool.release(uuid);
 }
 
-void MtxBuffer::destroy(MTXInterface* interface) {
-  interface->DestroyBuffer(*buf);
-  interface->FreeMemory(*mem);
-}
+BufferAllocator::BufferAllocator()
+    : _uuidCreater(uuids::uuid::from_string("47183823-2574-4bfd-b411-99ed177d3e43").value()) {}
 
 BufferAllocator::BufferAllocator(MTXInterface* interface)
     : _gfxInterface(interface),
       _uuidCreater(uuids::uuid::from_string("47183823-2574-4bfd-b411-99ed177d3e43").value()) {
+  _gfxInterface = interface;
   _pool.setInterFace(interface);
 }
+BufferAllocator::~BufferAllocator() {}
 
 std::shared_ptr<MtxBuffer> BufferAllocator::allocateBuffer(MtxBufferDesc& desc, bool deviceOnly,
                                                            std::string name, void* data) {
@@ -131,12 +129,12 @@ std::shared_ptr<MtxBuffer> BufferAllocator::allocateBuffer(MtxBufferDesc& desc, 
 
 void BufferAllocator::releaseBuffer(uuids::uuid uid) {
   auto resPtr = _pool.accessObject(uid);
-  resPtr->destroy(_gfxInterface);
+  //resPtr->destroy(_gfxInterface);
   _pool.release(uid);
 }
 
 void BufferAllocator::releaseBuffer(std::shared_ptr<MtxBuffer> mtxBuffer) {
-  mtxBuffer->destroy(_gfxInterface);
+  //mtxBuffer->destroy(_gfxInterface);
   _pool.release(mtxBuffer->_uid);
 }
 
