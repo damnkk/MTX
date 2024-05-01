@@ -12,7 +12,10 @@ add_subdirectory(External/NRIFramework)
 set_target_properties(NRI  
             PROPERTIES 
             RUNTIME_OUTPUT_DIRECTORY ${CMAKE_SOURCE_DIR}/build)
-file(GLOB RENDERER_SOURCE ./Src/*/*.cpp)
+file(GLOB RENDERER_SOURCE 
+./Src/*.cpp
+./Src/*/*.cpp
+)
 message(${RENDERER_SOURCE})
 add_executable(${PROJECT_NAME} main.cpp ${RENDERER_SOURCE})
 target_link_libraries(${PROJECT_NAME} PUBLIC NRIFramework NRI)

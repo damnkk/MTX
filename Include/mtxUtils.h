@@ -4,7 +4,7 @@
 namespace MTX {
 const uint32_t MTX_MAX_FRAME_COUNT = 3;
 namespace utils {
-static nri::AccessBits bufferUsageToAccess(nri::BufferUsageBits usage);
+nri::AccessBits bufferUsageToAccess(nri::BufferUsageBits usage);
 }// namespace utils
 }// namespace MTX
 

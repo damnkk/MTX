@@ -23,7 +23,7 @@ class ResourcePool {
  public:
   ResourcePool(){};
   ~ResourcePool();
-  std::shared_ptr<T> allocate(uid& uid);
+  std::shared_ptr<T> allocate(const uid& uid);
   void               release(const uid& uid);
   std::shared_ptr<T> accessObject(const uid& uid);
   size_t             size() { return _objects.size(); }
@@ -43,7 +43,7 @@ ResourcePool<T>::~ResourcePool() {
 }
 
 template<typename T>
-std::shared_ptr<T> ResourcePool<T>::allocate(uid& uid) {
+std::shared_ptr<T> ResourcePool<T>::allocate(const uid& uid) {
   std::unique_lock<std::mutex> lock(_mutex);
   if (_objects.size() >= MTX_MAX_POOL_CAPACITY) {
     MTX_WARN("Resource Pool can not alloc more object, check your code.")
@@ -95,10 +95,10 @@ class TextureAllocator : public BaseAllocator {
     _gfxInterface = interface;
     _pool.setInterFace(interface);
   }
-  std::shared_ptr<MtxTexture> allocateTexture(std::string path);
-  std::shared_ptr<MtxTexture> allocateTexture(MtxTextureDesc& desc, std::string name = "");
-  void                        releaseTexture(std::shared_ptr<MtxTexture> pTexture);
-  void                        releaseTexture(uuids::uuid uuid);
+  std::shared_ptr<MtxTexture> allocateTexture(const MtxTextureAllocInfo& allocInfo);
+  // std::shared_ptr<MtxTexture> allocateTexture(MtxTextureDesc& desc, std::string name = "");
+  void releaseTexture(std::shared_ptr<MtxTexture> pTexture);
+  void releaseTexture(uuids::uuid uuid);
 
  private:
   uuids::uuid_name_generator _uuidCreater;
@@ -116,8 +116,7 @@ class BufferAllocator : public BaseAllocator {
     _gfxInterface = interface;
     _pool.setInterFace(interface);
   }
-  std::shared_ptr<MtxBuffer> allocateBuffer(MtxBufferDesc& desc, bool deviceOnly,
-                                            std::string name = "", void* data = nullptr);
+  std::shared_ptr<MtxBuffer> allocateBuffer(const MtxBufferAllocInfo& bufferInfo);
   void                       releaseBuffer(std::shared_ptr<MtxBuffer> pBuffer);
   void                       releaseBuffer(uuids::uuid iuid);
 

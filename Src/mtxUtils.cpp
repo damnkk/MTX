@@ -3,7 +3,7 @@
 namespace MTX {
 namespace utils {
 
-static nri::AccessBits bufferUsageToAccess(nri::BufferUsageBits usage) {
+nri::AccessBits bufferUsageToAccess(nri::BufferUsageBits usage) {
   nri::AccessStage test;
   nri::AccessBits  res = nri::AccessBits::UNKNOWN;
   if (usage & nri::BufferUsageBits::VERTEX_BUFFER) { res |= nri::AccessBits::VERTEX_BUFFER; }

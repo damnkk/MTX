@@ -8,19 +8,28 @@ using uid = uuids::uuid;
 
 struct Object {
   Object() {}
-  Object(uid& uid) : _uid(uid){};
+  Object(const uid& uid) : _uid(uid){};
   virtual void destroy(MTXInterface* interface) = 0;
   const uid    _uid;
 };
 
+struct MtxTextureAllocInfo {
+  uuids::uuid      _uid;
+  nri::TextureDesc _desc;
+  std::string      _name;
+  utils::Texture*  _sourceData;
+};
+
 struct MtxTexture : public Object {
   MtxTexture() {}
-  MtxTexture(uid& uid) : Object(uid){};
-  nri::Texture*         tex = nullptr;
-  nri::Memory*          mem;
-  nri::Descriptor*      imageView;
-  nri::TextureDesc      desc;
+  MtxTexture(const uid& uid) : Object(uid){};
+  nri::Texture*    tex = nullptr;
+  nri::Memory*     mem;
+  nri::Descriptor* imageView;
+  nri::TextureDesc desc;
+
   void                  destroy(MTXInterface* interface) override;
+  nri::Memory&          getMem() { return *mem; }
   nri::Dim_t            width() { return desc.width; }
   nri::Dim_t            height() { return desc.height; }
   nri::Format           format() { return desc.format; }
@@ -31,14 +40,32 @@ struct MtxTexture : public Object {
   bool                  isValid() { return tex != nullptr; }
 };
 
+struct MtxBufferAllocInfo {
+  uuids::uuid     _uid;
+  nri::BufferDesc _desc;
+  std::string     _name;
+  bool            _haveAccessStage = false;
+  bool            _deviceOnly = true;
+  void*           _data;
+  void            setAccessStage(nri::AccessStage acst) {
+    _accessStage = acst;
+    _haveAccessStage = true;
+  }
+  nri::AccessStage getAccessStage() const { return _accessStage; }
+
+ private:
+  nri::AccessStage _accessStage = {};
+};
+
 struct MtxBuffer : public Object {
   MtxBuffer() {}
-  MtxBuffer(uid& uid) : Object(uid) {}
+  MtxBuffer(const uid& uid) : Object(uid) {}
   nri::Buffer*         buf = nullptr;
   nri::Memory*         mem = nullptr;
   nri::BufferDesc      desc;
-  nri::Buffer&         getBuf() { return *buf; }
   void                 destroy(MTXInterface* interface) override;
+  nri::Buffer&         getBuf() { return *buf; }
+  nri::Memory&         getMem() { return *mem; }
   uint64_t             size() { return desc.size; }
   nri::BufferUsageBits usage() { return desc.usageMask; }
   bool                 isValid() { return buf != nullptr; }

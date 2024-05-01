@@ -15,55 +15,37 @@ TextureAllocator::TextureAllocator(MTXInterface* interface)
 
 TextureAllocator::~TextureAllocator() {}
 
-std::shared_ptr<MtxTexture> TextureAllocator::allocateTexture(std::string path) {
+std::shared_ptr<MtxTexture>
+TextureAllocator::allocateTexture(const MtxTextureAllocInfo& allocInfo) {
   // add a file existing validation
-  auto uuid = _uuidCreater(path);
-  MTX_ASSERT(!uuid.is_nil());
-  auto texture = _pool.allocate(uuid);
+  MTX_ASSERT(!allocInfo._uid.is_nil());
+  auto texture = _pool.allocate(allocInfo._uid);
   if (texture->isValid()) { return texture; }
-  nri::TextureDesc desc{};
-  ::utils::Texture tes;
-  ::utils::LoadTexture(path, tes);
-  if (tes.depth == 1) {
-    desc = nri::Texture2D(tes.format, tes.width, tes.height, tes.mipNum, tes.arraySize);
-  } else if (tes.depth > 1) {
-    desc = nri::Texture3D(tes.format, tes.width, tes.height, tes.depth, tes.mipNum);
-  }
-  _gfxInterface->CreateTexture(_gfxInterface->getDevice(), desc, texture->tex);
-  texture->desc = desc;
-
+  _gfxInterface->CreateTexture(_gfxInterface->getDevice(), allocInfo._desc, texture->tex);
+  texture->desc = allocInfo._desc;
   nri::ResourceGroupDesc resourceGroupDesc{};
   resourceGroupDesc.textureNum = 1;
   resourceGroupDesc.textures = &(texture->tex);
   resourceGroupDesc.memoryLocation = nri::MemoryLocation::DEVICE;
   auto res = _gfxInterface->AllocateAndBindMemory(_gfxInterface->getDevice(), resourceGroupDesc,
                                                   &(texture->mem));
-  MTX_ASSERT(res == nri::Result::SUCCESS);
+  MTX_CHECK(res);
+  if (allocInfo._sourceData != nullptr) {
+    std::array<nri::TextureSubresourceUploadDesc, 16> subresources;
+    for (uint32_t mip = 0; mip < allocInfo._sourceData->mipNum; ++mip) {
+      allocInfo._sourceData->GetSubresource(subresources[mip], mip);
+    }
 
-  std::array<nri::TextureSubresourceUploadDesc, 16> subresources;
-  for (uint32_t mip = 0; mip < tes.mipNum; ++mip) { tes.GetSubresource(subresources[mip], mip); }
+    nri::TextureUploadDesc textureData = {};
+    textureData.texture = texture->tex;
+    textureData.subresources = subresources.data();
+    textureData.after = {nri::AccessBits::SHADER_RESOURCE, nri::Layout::SHADER_RESOURCE};
+    _gfxInterface->UploadData(*(_gfxInterface->_transferQueue), &textureData, 1, nullptr, 0);
+  }
 
-  nri::TextureUploadDesc textureData = {};
-  textureData.texture = texture->tex;
-  textureData.subresources = subresources.data();
-  textureData.after = {nri::AccessBits::SHADER_RESOURCE, nri::Layout::SHADER_RESOURCE};
-
-  _gfxInterface->UploadData(*(_gfxInterface->_transferQueue), &textureData, 1, nullptr, 0);
-  _gfxInterface->SetTextureDebugName(*(texture->tex), path.c_str());
-  return texture;
-}
-
-std::shared_ptr<MtxTexture> TextureAllocator::allocateTexture(MtxTextureDesc& desc,
-                                                              std::string     name) {
-  std::string tempName = name;
-  if (name.empty()) { tempName = "name" + std::to_string(_pool.size()); }
-  auto uuid = _uuidCreater(name);
-  MTX_ASSERT(!uuid.is_nil());
-  auto texture = _pool.allocate(uuid);
-  if (texture->isValid()) { return texture; }
-  _gfxInterface->CreateTexture(_gfxInterface->getDevice(), desc, texture->tex);
-  texture->desc = desc;
-  _gfxInterface->SetTextureDebugName(*(texture->tex), name.c_str());
+  std::string realName = "name" + std::to_string(_pool.size());
+  _gfxInterface->SetTextureDebugName(
+      *(texture->tex), allocInfo._name.empty() ? realName.c_str() : allocInfo._name.c_str());
   return texture;
 }
 
@@ -89,40 +71,31 @@ BufferAllocator::BufferAllocator(MTXInterface* interface)
 }
 BufferAllocator::~BufferAllocator() {}
 
-std::shared_ptr<MtxBuffer> BufferAllocator::allocateBuffer(MtxBufferDesc& desc, bool deviceOnly,
-                                                           std::string name, void* data) {
-  std::string tempName = name;
-  if (name.empty()) { tempName = "name" + std::to_string(_pool.size()); }
-  auto uuid = _uuidCreater(name);
+std::shared_ptr<MtxBuffer> BufferAllocator::allocateBuffer(const MtxBufferAllocInfo& allocInfo) {
+  std::string tempName = allocInfo._name;
+  if (allocInfo._name.empty()) { tempName = "name" + std::to_string(_pool.size()); }
+  auto uuid = allocInfo._uid;
   MTX_ASSERT(!uuid.is_nil());
   std::shared_ptr<MtxBuffer> buffer = _pool.allocate(uuid);
-  buffer->desc = desc;
-  _gfxInterface->CreateBuffer(_gfxInterface->getDevice(), desc, buffer->buf);
-  nri::MemoryDesc memDesc = {};
-  _gfxInterface->GetBufferMemoryInfo(
-      *(buffer->buf), deviceOnly ? nri::MemoryLocation::DEVICE : nri::MemoryLocation::HOST_UPLOAD,
-      memDesc);
-  auto res = _gfxInterface->AllocateMemory(_gfxInterface->getDevice(), memDesc.type, memDesc.size,
-                                           buffer->mem);
-  MTX_ASSERT(res == nri::Result::SUCCESS);
-  nri::BufferMemoryBindingDesc bindDesc{buffer->mem, buffer->buf};
-  res = _gfxInterface->BindBufferMemory(_gfxInterface->getDevice(), &bindDesc, 1);
-  MTX_ASSERT(res == nri::Result::SUCCESS);
-  if (data) {
-    if (!deviceOnly) {
-      void* mappedMem = _gfxInterface->MapBuffer(*(buffer->buf), 0, buffer->size());
-      memcpy(mappedMem, data, buffer->size());
-      _gfxInterface->UnmapBuffer(buffer->getBuf());
+  buffer->desc = allocInfo._desc;
+  _gfxInterface->CreateBuffer(_gfxInterface->getDevice(), buffer->desc, buffer->buf);
+  nri::ResourceGroupDesc resourceGroupDesc = {};
+  resourceGroupDesc.bufferNum = 1;
+  resourceGroupDesc.buffers = &(buffer->buf);
+  auto res = _gfxInterface->AllocateAndBindMemory(_gfxInterface->getDevice(), resourceGroupDesc,
+                                                  &(buffer->mem));
+  if (allocInfo._data) {
+    nri::BufferUploadDesc uploadDesc{};
+    uploadDesc.buffer = buffer->buf;
+    uploadDesc.bufferOffset = 0;
+    uploadDesc.data = allocInfo._data;
+    uploadDesc.dataSize = allocInfo._desc.size;
+    if (allocInfo._haveAccessStage) {
+      uploadDesc.after = allocInfo.getAccessStage();
     } else {
-      nri::BufferUploadDesc uploadDesc = {};
-      uploadDesc.buffer = buffer->buf;
-      uploadDesc.bufferOffset = 0;
-      uploadDesc.data = data;
-      uploadDesc.dataSize = desc.size;
-      uploadDesc.after = {nri::AccessBits::UNKNOWN};
-      _gfxInterface->UploadData(_gfxInterface->getComputeQueue(), nullptr, 0, &uploadDesc, 1);
+      uploadDesc.after = {utils::bufferUsageToAccess(allocInfo._desc.usageMask)};
     }
-  }
+  };
   _gfxInterface->SetBufferDebugName(buffer->getBuf(), tempName.c_str());
   return buffer;
 }
