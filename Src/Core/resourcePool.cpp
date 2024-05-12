@@ -2,6 +2,7 @@
 #include "mtxUtils.h"
 
 namespace MTX {
+std::atomic_uint64_t UUID_COUNT = 0;
 
 TextureAllocator::TextureAllocator()
     : _uuidCreater(uuids::uuid::from_string("47183823-2574-4bfd-b411-99ed177d3e43").value()) {}
@@ -18,8 +19,11 @@ TextureAllocator::~TextureAllocator() {}
 std::shared_ptr<MtxTexture>
 TextureAllocator::allocateTexture(const MtxTextureAllocInfo& allocInfo) {
   // add a file existing validation
-  MTX_ASSERT(!allocInfo._uid.is_nil());
-  auto texture = _pool.allocate(allocInfo._uid);
+  std::string tempName = allocInfo._name;
+  if (tempName.empty()) { tempName = "texture" + std::to_string(_pool.size()); }
+  auto uid = _uuidCreater(std::to_string(++UUID_COUNT));
+  MTX_ASSERT(!uid.is_nil());
+  auto texture = _pool.allocate(uid);
   if (texture->isValid()) { return texture; }
   _gfxInterface->CreateTexture(_gfxInterface->getDevice(), allocInfo._desc, texture->tex);
   texture->desc = allocInfo._desc;
@@ -43,9 +47,8 @@ TextureAllocator::allocateTexture(const MtxTextureAllocInfo& allocInfo) {
     _gfxInterface->UploadData(*(_gfxInterface->_transferQueue), &textureData, 1, nullptr, 0);
   }
 
-  std::string realName = "name" + std::to_string(_pool.size());
-  _gfxInterface->SetTextureDebugName(
-      *(texture->tex), allocInfo._name.empty() ? realName.c_str() : allocInfo._name.c_str());
+  _gfxInterface->SetTextureDebugName(*(texture->tex), tempName.c_str());
+  texture->name = tempName;
   return texture;
 }
 
@@ -74,14 +77,15 @@ BufferAllocator::~BufferAllocator() {}
 std::shared_ptr<MtxBuffer> BufferAllocator::allocateBuffer(const MtxBufferAllocInfo& allocInfo) {
   std::string tempName = allocInfo._name;
   if (allocInfo._name.empty()) { tempName = "name" + std::to_string(_pool.size()); }
-  auto uuid = allocInfo._uid;
-  MTX_ASSERT(!uuid.is_nil());
-  std::shared_ptr<MtxBuffer> buffer = _pool.allocate(uuid);
+  auto uid = _uuidCreater(std::to_string(UUID_COUNT++));
+  MTX_ASSERT(!uid.is_nil());
+  std::shared_ptr<MtxBuffer> buffer = _pool.allocate(uid);
   buffer->desc = allocInfo._desc;
   _gfxInterface->CreateBuffer(_gfxInterface->getDevice(), buffer->desc, buffer->buf);
   nri::ResourceGroupDesc resourceGroupDesc = {};
   resourceGroupDesc.bufferNum = 1;
   resourceGroupDesc.buffers = &(buffer->buf);
+  resourceGroupDesc.memoryLocation = allocInfo._memLocation;
   auto res = _gfxInterface->AllocateAndBindMemory(_gfxInterface->getDevice(), resourceGroupDesc,
                                                   &(buffer->mem));
   if (allocInfo._data) {
@@ -97,6 +101,7 @@ std::shared_ptr<MtxBuffer> BufferAllocator::allocateBuffer(const MtxBufferAllocI
     }
   };
   _gfxInterface->SetBufferDebugName(buffer->getBuf(), tempName.c_str());
+  buffer->name = tempName;
   return buffer;
 }
 
@@ -109,6 +114,77 @@ void BufferAllocator::releaseBuffer(uuids::uuid uid) {
 void BufferAllocator::releaseBuffer(std::shared_ptr<MtxBuffer> mtxBuffer) {
   //mtxBuffer->destroy(_gfxInterface);
   _pool.release(mtxBuffer->_uid);
+}
+
+AcceStructureAllocator::AcceStructureAllocator()
+    : _uuidCreater(uuids::uuid::from_string("47183823-2574-4bfd-b411-99ed177d3e43").value()) {}
+
+AcceStructureAllocator::AcceStructureAllocator(MTXInterface* interface)
+    : _gfxInterface(interface),
+      _uuidCreater(uuids::uuid::from_string("47183823-2574-4bfd-b411-99ed177d3e43").value()) {
+  _gfxInterface = interface;
+  _pool.setInterFace(interface);
+}
+AcceStructureAllocator::~AcceStructureAllocator() {}
+
+std::shared_ptr<MtxAcceStructure>
+AcceStructureAllocator::allocateAcceStructure(const nri::AccelerationStructureDesc& desc) {
+  std::string name = "AccesStructure" + std::to_string(_pool.size());
+  auto        uid = _uuidCreater(std::to_string(UUID_COUNT));
+  MTX_ASSERT(!uid.is_nil());
+  std::shared_ptr<MtxAcceStructure> accePtr = _pool.allocate(uid);
+  MTX_CHECK(
+      _gfxInterface->CreateAccelerationStructure(_gfxInterface->getDevice(), desc, accePtr->acc));
+  nri::MemoryDesc memoryDesc = {};
+  _gfxInterface->GetAccelerationStructureMemoryInfo(*(accePtr->acc), memoryDesc);
+  nri::Memory* asMemory = nullptr;
+  _gfxInterface->AllocateMemory(_gfxInterface->getDevice(), memoryDesc.type, memoryDesc.size,
+                                asMemory);
+  nri::AccelerationStructureMemoryBindingDesc memBindDesc = {asMemory, accePtr->acc};
+  _gfxInterface->BindAccelerationStructureMemory(_gfxInterface->getDevice(), &memBindDesc, 1);
+  _gfxInterface->SetAccelerationStructureDebugName(*(accePtr->acc), name.c_str());
+  return accePtr;
+}
+
+PipelineAllocator::PipelineAllocator()
+    : _uuidCreater(uuids::uuid::from_string("47183823-2574-4bfd-b411-99ed177d3e43").value()) {}
+PipelineAllocator::PipelineAllocator(MTXInterface* interface)
+    : _uuidCreater(uuids::uuid::from_string("47183823-2574-4bfd-b411-99ed177d3e43").value()) {
+  setInterface(interface);
+}
+
+std::shared_ptr<MtxPipeline>
+PipelineAllocator::allocatePipeline(const MtxPipelineAllocateInfo& allocInfo) {
+  std::string tempName = allocInfo.name;
+  if (allocInfo.name.empty()) { tempName = "Pipeline" + std::to_string(_pool.size()); }
+  auto uid = _uuidCreater(UUID_COUNT++);
+  auto pipelinePtr = _pool.allocate(uid);
+
+  pipelinePtr->name = tempName;
+  pipelinePtr->pipelineLayout = const_cast<nri::PipelineLayout*>(
+      ((nri::GraphicsPipelineDesc*) (allocInfo.pipelineDesc))->pipelineLayout);
+  pipelinePtr->desc = allocInfo.pipelineDesc;
+  pipelinePtr->type = allocInfo.pipelineType;
+
+  switch (allocInfo.pipelineType) {
+    case MTX::PipelineType::Graphics: {
+      MTX_CHECK(_gfxInterface->CreateGraphicsPipeline(
+          _gfxInterface->getDevice(), *((nri::GraphicsPipelineDesc*) allocInfo.pipelineDesc),
+          pipelinePtr->pipeline));
+    }
+    case MTX::PipelineType::Compute: {
+      MTX_CHECK(_gfxInterface->CreateComputePipeline(
+          _gfxInterface->getDevice(), *((nri::ComputePipelineDesc*) allocInfo.pipelineDesc),
+          pipelinePtr->pipeline));
+    }
+    case MTX::PipelineType::RayTracing: {
+      MTX_CHECK(_gfxInterface->CreateRayTracingPipeline(
+          _gfxInterface->getDevice(), *((nri::RayTracingPipelineDesc*) allocInfo.pipelineDesc),
+          pipelinePtr->pipeline));
+    }
+  }
+  _gfxInterface->SetPipelineDebugName(pipelinePtr->getPipeline(), tempName.c_str());
+  return pipelinePtr;
 }
 
 }// namespace MTX

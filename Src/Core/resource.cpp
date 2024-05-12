@@ -20,4 +20,12 @@ void MtxBuffer::destroy(MTXInterface* interface) {
   }
 }
 
+void MtxAcceStructure::destroy(MTXInterface* interface) {
+  MTX_ASSERT(interface != nullptr);
+  if (nullptr != acc && nullptr != mem) {
+    interface->DestroyAccelerationStructure(*acc);
+    interface->FreeMemory(*mem);
+  }
+}
+
 }// namespace MTX
