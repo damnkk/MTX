@@ -3,6 +3,9 @@
 #include "NRIFramework.h"
 namespace MTX {
 const uint32_t MTX_MAX_FRAME_COUNT = 3;
+struct MtxRayTracingPushConstant {
+  int temp;
+};
 namespace utils {
 nri::AccessBits bufferUsageToAccess(nri::BufferUsageBits usage);
 }// namespace utils

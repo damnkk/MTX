@@ -8,12 +8,15 @@ MTXInterface::MTXInterface() {
   m_textureAllocator = std::make_shared<TextureAllocator>(this);
   m_bufferAllocator = std::make_shared<BufferAllocator>(this);
   m_acceStructureAllocator = std::make_shared<AcceStructureAllocator>(this);
+  m_pipelineAllocator = std::make_shared<PipelineAllocator>(this);
 }
 void MTXInterface::destroy() {
   DestroyCommandAllocator(*_instantCommandAllocator);
+
   m_textureAllocator->destroy();
   m_bufferAllocator->destroy();
   m_acceStructureAllocator->destroy();
+  m_pipelineAllocator->destroy();
 }
 
 std::shared_ptr<MtxTexture> MTXInterface::allocateTexture(const MtxTextureAllocInfo& allocInfo) {

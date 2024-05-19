@@ -40,7 +40,7 @@ struct MtxTexture : public Object {
   MtxTexture(const uid& uid) : Object(uid){};
   nri::Texture*    tex = nullptr;
   nri::Memory*     mem;
-  nri::Descriptor* imageView;
+  nri::Descriptor* imageView = nullptr;
   nri::TextureDesc desc;
 
   void                  destroy(MTXInterface* interface) override;
@@ -62,6 +62,7 @@ struct MtxAcceStructure : public Object {
   nri::AccelerationStructureDesc* accDesc = nullptr;
   nri::Memory*                    mem = nullptr;
   nri::AccelerationStructure*     acc = nullptr;
+  nri::Descriptor*                accView = nullptr;
 };
 struct MtxBufferAllocInfo {
   nri::BufferDesc     _desc;
@@ -84,6 +85,7 @@ struct MtxBuffer : public Object {
   MtxBuffer(const uid& uid) : Object(uid) {}
   nri::Buffer*         buf = nullptr;
   nri::Memory*         mem = nullptr;
+  nri::Descriptor*     bufView = nullptr;
   nri::BufferDesc      desc;
   void                 destroy(MTXInterface* interface) override;
   nri::Buffer&         getBuf() { return *buf; }
@@ -108,12 +110,9 @@ struct MtxPipeline : public Object {
   nri::PipelineLayout* pipelineLayout;
   void*                desc = nullptr;
   PipelineType         type = PipelineType::Graphics;
-  void                 destroy(MTXInterface* interface) override {
-    interface->DestroyPipeline(*pipeline);
-    interface->DestroyPipelineLayout(*pipelineLayout);
-  };
-  nri::Pipeline& getPipeline() { return *pipeline; }
-  bool           isValid() { return pipeline != nullptr; }
+  void                 destroy(MTXInterface* interface) override;
+  nri::Pipeline&       getPipeline() { return *pipeline; }
+  bool                 isValid() { return pipeline != nullptr; }
 };
 
 struct FrameResource {

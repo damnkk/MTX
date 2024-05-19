@@ -66,6 +66,7 @@ struct BoundingBox {
 };
 
 struct Mesh {
+  u32                        modelIdx = 0;
   u32                        indexOffset = 0;
   u32                        vertexOffset = 0;
   u32                        vertexCount = 0;
@@ -91,6 +92,7 @@ class SceneLoader {
   std::vector<Vertex>&                      getVertices() { return m_sceneVertices; }
   std::vector<uint32_t>&                    getIndices() { return m_sceneIndices; }
   std::vector<Mesh>&                        getMeshes() { return m_meshes; }
+  std::vector<Material>&                    getMaterials() { return m_materials; }
 
  protected:
   void traverse(const aiScene* sourceScene, SceneGraph& sceneGraph, aiNode* node, int parent,
@@ -106,6 +108,11 @@ class SceneLoader {
   std::vector<std::shared_ptr<MtxTexture>> m_sceneTextures;
   int                                      m_sceneTextureOffset = 0;
   //geom data
+  /*
+  *定义一个modelOffset,创建GPU数据的时候将属于同一个模型的mesh整体创建为一个整体,但是不同模型的vertexOffset 
+  *和idx应该重新计算.
+  */
+  uint32_t              m_modelOffset = 0;
   std::vector<Vertex>   m_sceneVertices;
   uint32_t              m_vertexOffset = 0;
   std::vector<uint32_t> m_sceneIndices;

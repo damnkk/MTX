@@ -21,7 +21,7 @@ TextureAllocator::allocateTexture(const MtxTextureAllocInfo& allocInfo) {
   // add a file existing validation
   std::string tempName = allocInfo._name;
   if (tempName.empty()) { tempName = "texture" + std::to_string(_pool.size()); }
-  auto uid = _uuidCreater(std::to_string(++UUID_COUNT));
+  auto uid = _uuidCreater(std::to_string(UUID_COUNT++).c_str());
   MTX_ASSERT(!uid.is_nil());
   auto texture = _pool.allocate(uid);
   if (texture->isValid()) { return texture; }
@@ -77,7 +77,7 @@ BufferAllocator::~BufferAllocator() {}
 std::shared_ptr<MtxBuffer> BufferAllocator::allocateBuffer(const MtxBufferAllocInfo& allocInfo) {
   std::string tempName = allocInfo._name;
   if (allocInfo._name.empty()) { tempName = "name" + std::to_string(_pool.size()); }
-  auto uid = _uuidCreater(std::to_string(UUID_COUNT++));
+  auto uid = _uuidCreater(std::to_string(UUID_COUNT++).c_str());
   MTX_ASSERT(!uid.is_nil());
   std::shared_ptr<MtxBuffer> buffer = _pool.allocate(uid);
   buffer->desc = allocInfo._desc;
@@ -130,7 +130,7 @@ AcceStructureAllocator::~AcceStructureAllocator() {}
 std::shared_ptr<MtxAcceStructure>
 AcceStructureAllocator::allocateAcceStructure(const nri::AccelerationStructureDesc& desc) {
   std::string name = "AccesStructure" + std::to_string(_pool.size());
-  auto        uid = _uuidCreater(std::to_string(UUID_COUNT));
+  auto        uid = _uuidCreater(std::to_string(UUID_COUNT++).c_str());
   MTX_ASSERT(!uid.is_nil());
   std::shared_ptr<MtxAcceStructure> accePtr = _pool.allocate(uid);
   MTX_CHECK(
@@ -143,6 +143,9 @@ AcceStructureAllocator::allocateAcceStructure(const nri::AccelerationStructureDe
   nri::AccelerationStructureMemoryBindingDesc memBindDesc = {asMemory, accePtr->acc};
   _gfxInterface->BindAccelerationStructureMemory(_gfxInterface->getDevice(), &memBindDesc, 1);
   _gfxInterface->SetAccelerationStructureDebugName(*(accePtr->acc), name.c_str());
+  accePtr->accDesc = const_cast<nri::AccelerationStructureDesc*>(&desc);
+  accePtr->mem = asMemory;
+
   return accePtr;
 }
 
@@ -153,11 +156,13 @@ PipelineAllocator::PipelineAllocator(MTXInterface* interface)
   setInterface(interface);
 }
 
+PipelineAllocator::~PipelineAllocator() {}
+
 std::shared_ptr<MtxPipeline>
 PipelineAllocator::allocatePipeline(const MtxPipelineAllocateInfo& allocInfo) {
   std::string tempName = allocInfo.name;
   if (allocInfo.name.empty()) { tempName = "Pipeline" + std::to_string(_pool.size()); }
-  auto uid = _uuidCreater(UUID_COUNT++);
+  auto uid = _uuidCreater(std::to_string(UUID_COUNT++).c_str());
   auto pipelinePtr = _pool.allocate(uid);
 
   pipelinePtr->name = tempName;

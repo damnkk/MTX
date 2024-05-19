@@ -12,14 +12,16 @@ add_definitions(-DBUILD_SHARED_LIBS=OFF -DASSIMP_WARNINGS_AS_ERRORS=OFF )
 
 set(NRIF_SHADERS_PATH ${SHADER_OUTPUT_PATH} CACHE STRING "")
 add_subdirectory(External/NRIFramework)
+
 file (GLOB_RECURSE SHADERS "Shaders/*.hlsl" "Shaders/*.hlsli")
+message(${SHADERS})
 set_source_files_properties (${SHADERS} PROPERTIES VS_TOOL_OVERRIDE "None")
 add_custom_target (${PROJECT_NAME}_Shaders ALL
             COMMAND ShaderMake --useAPI
                 --binary --flatten --stripReflection --compiler "${DXC_PATH}"
                 --sourceDir "Shaders"
                 -p DXIL
-                -c Shaders.cfg
+               -c Shaders.cfg
                 -o "${SHADER_OUTPUT_PATH}"
                 -I "Shaders"
                 -I "External"
@@ -29,28 +31,20 @@ add_custom_target (${PROJECT_NAME}_Shaders ALL
                 --binary --flatten --stripReflection --compiler "${DXC_SPIRV_PATH}"
                 --sourceDir "Shaders"
                 -p SPIRV
-                -c Shaders.cfg
+               -c Shaders.cfg
                 -o "${SHADER_OUTPUT_PATH}"
                 -I "Shaders"
                 -I "External"
                 -I "External/NRIFramework/External"
                 -D COMPILER_DXC
                 -D VULKAN
-            COMMAND ShaderMake --useAPI
-                --binary --flatten --stripReflection --compiler "${FXC_PATH}"
-                --sourceDir "Shaders"
-                -p DXBC
-                -c Shaders.cfg
-                -o "${SHADER_OUTPUT_PATH}"
-                -I "Shaders"
-                -I "External"
-                -I "External/NRIFramework/External"
-                -D COMPILER_FXC
+  
             DEPENDS ShaderMake
             WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
             VERBATIM
             SOURCES ${SHADERS}
         )
+set_property (TARGET ${PROJECT_NAME}_Shaders PROPERTY FOLDER ${PROJECT_NAME})
 add_subdirectory(External/assimp)
 set_target_properties(NRI  
             PROPERTIES 

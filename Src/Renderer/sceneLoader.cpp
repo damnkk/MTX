@@ -9,6 +9,7 @@ void SceneLoader::destroy() {}
 
 Mesh SceneLoader::convertAIMesh(aiMesh* mesh) {
   Mesh mtxMesh;
+  mtxMesh.modelIdx = m_modelOffset;
   bool hasTexCoords = mesh->HasTextureCoords(0);
   bool hasTagent = mesh->HasTangentsAndBitangents();
   // std::vector<float> srcVertices;
@@ -146,8 +147,8 @@ Material SceneLoader::convertAIMaterialToDescription(const aiMaterial* aiMat,
     texAllocInfo._name = std::string(texPath.C_Str());
     texAllocInfo._sourceData = &utilTex;
     auto diffTex = m_interface->allocateTexture(texAllocInfo);
-    m_sceneTextures.push_back(diffTex);
     mat.setDiffuseTexture(m_sceneTextures.size());
+    m_sceneTextures.push_back(diffTex);
   }
   if (aiMat->GetTexture(aiTextureType_EMISSIVE, 0, &texPath) == AI_SUCCESS) {
     std::string emissivePath = basePath + '/' + std::string(texPath.C_Str());
@@ -158,8 +159,8 @@ Material SceneLoader::convertAIMaterialToDescription(const aiMaterial* aiMat,
     texAllocInfo._name = std::string(texPath.C_Str());
     texAllocInfo._sourceData = &utilTex;
     auto diffTex = m_interface->allocateTexture(texAllocInfo);
-    m_sceneTextures.push_back(diffTex);
     mat.setEmissiveTexture(m_sceneTextures.size());
+    m_sceneTextures.push_back(diffTex);
   }
   if (aiMat->GetTexture(aiTextureType_DIFFUSE_ROUGHNESS, 0, &texPath) == AI_SUCCESS) {
     std::string mrTex = basePath + '/' + std::string(texPath.C_Str());
@@ -170,8 +171,8 @@ Material SceneLoader::convertAIMaterialToDescription(const aiMaterial* aiMat,
     texAllocInfo._name = std::string(texPath.C_Str());
     texAllocInfo._sourceData = &utilTex;
     auto diffTex = m_interface->allocateTexture(texAllocInfo);
-    m_sceneTextures.push_back(diffTex);
     mat.setMRTexture(m_sceneTextures.size());
+    m_sceneTextures.push_back(diffTex);
   }
   if (aiMat->GetTexture(aiTextureType_LIGHTMAP, 0, &texPath) == AI_SUCCESS) {
     std::string oaTex = basePath + '/' + std::string(texPath.C_Str());
@@ -182,8 +183,8 @@ Material SceneLoader::convertAIMaterialToDescription(const aiMaterial* aiMat,
     texAllocInfo._name = std::string(texPath.C_Str());
     texAllocInfo._sourceData = &utilTex;
     auto diffTex = m_interface->allocateTexture(texAllocInfo);
-    m_sceneTextures.push_back(diffTex);
     mat.setAoTexture(m_sceneTextures.size());
+    m_sceneTextures.push_back(diffTex);
   }
   if (aiMat->GetTexture(aiTextureType_NORMALS, 0, &texPath) == AI_SUCCESS) {
     std::string normPath = basePath + '/' + std::string(texPath.C_Str());
@@ -194,8 +195,8 @@ Material SceneLoader::convertAIMaterialToDescription(const aiMaterial* aiMat,
     texAllocInfo._name = std::string(texPath.C_Str());
     texAllocInfo._sourceData = &utilTex;
     auto diffTex = m_interface->allocateTexture(texAllocInfo);
-    m_sceneTextures.push_back(diffTex);
     mat.setNormalTexture(m_sceneTextures.size());
+    m_sceneTextures.push_back(diffTex);
   }
   return mat;
 }
@@ -238,6 +239,7 @@ std::shared_ptr<SceneGraph> SceneLoader::loadScene(std::string path) {
   }
 
   traverse(scene, *m_sceneGraph, scene->mRootNode, 0, 1);
+  m_modelOffset++;
   return m_sceneGraph;
 }
 
