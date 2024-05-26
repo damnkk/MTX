@@ -31,6 +31,7 @@ class Material {
     alignas(16) aliInt textureUseSetting[4] = {1, 1, 1, 1};
     alignas(16) aliInt textureIndices[MAX_MATERIAL_TEXTURE_CNT];
   } materialUniform;
+
   Material();
   void addTexture(int textureIdx);
   void deleteTexture(int bindIdx);
@@ -41,7 +42,6 @@ class Material {
   void setEmissiveTexture(int textureIdx);
   void setAoTexture(int textureIdx);
 
- private:
   MTXRenderer*                                 m_renderer;
   std::unordered_map<std::string, TextureBind> m_textureMap;
 };

@@ -12,7 +12,7 @@ struct mtxDebugAllocator {
 };
 
 MTXRenderer::~MTXRenderer() {
-  mtxDebugAllocator* debugAllocator = (mtxDebugAllocator*) m_MemoryAllocatorInterface.userArg;
+  // mtxDebugAllocator* debugAllocator = (mtxDebugAllocator*) m_MemoryAllocatorInterface.userArg;
   m_interface.WaitForIdle(m_interface.getGraphicQueue());
   m_interface.WaitForIdle(m_interface.getComputeQueue());
   m_interface.WaitForIdle(m_interface.getTransferQueue());
@@ -28,18 +28,19 @@ MTXRenderer::~MTXRenderer() {
 }
 
 bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
-  mtxDebugAllocator* debugAllocator = (mtxDebugAllocator*) m_MemoryAllocatorInterface.userArg;
-  nri::AdapterDesc   bestAdaptDesc = {};
-  uint32_t           adapterDescsNum = 1;
-  auto               res = nri::nriEnumerateAdapters(&bestAdaptDesc, adapterDescsNum);
+  initCamera();
+  // mtxDebugAllocator* debugAllocator = (mtxDebugAllocator*) m_MemoryAllocatorInterface.userArg;
+  nri::AdapterDesc bestAdaptDesc = {};
+  uint32_t         adapterDescsNum = 1;
+  auto             res = nri::nriEnumerateAdapters(&bestAdaptDesc, adapterDescsNum);
   MTX_CHECK(res);
   nri::DeviceCreationDesc deviceCreationDesc = {};
-  deviceCreationDesc.adapterDesc = nullptr;
-  deviceCreationDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
   deviceCreationDesc.graphicsAPI = nri::GraphicsAPI::VULKAN;
-  deviceCreationDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
   deviceCreationDesc.enableAPIValidation = true;
   deviceCreationDesc.enableNRIValidation = false;
+  deviceCreationDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
+  deviceCreationDesc.adapterDesc = nullptr;
+  deviceCreationDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
   res = nri::nriCreateDevice(deviceCreationDesc, m_interface._device);
   MTX_CHECK(res)
   MTX_CHECK(nri::nriGetInterface(m_interface.getDevice(), NRI_INTERFACE(nri::CoreInterface),
@@ -75,10 +76,10 @@ bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
           m_interface.CreateCommandBuffer(*(i._commandPools[poolIdx]), i._commandBuffers[cmdIdx]));
     }
   }
-  nri::Format swpFormat = nri::Format::UNKNOWN;
+  nri::Format swpFormat = nri::Format::RGBA8_SNORM;
   createSwapChain(swpFormat);
   m_sceneLoader = std::make_shared<SceneLoader>(&m_interface);
-  m_SceneFile = "./Asset/models/MetalRoughSpheres/MetalRoughSpheres.gltf";
+  m_SceneFile = "./Asset/models/DamagedHelmet/DamagedHelmet.gltf";
   //loadScene 泄露两个
   m_sceneLoader->loadScene(m_SceneFile);
   createRayTracingPipeline();
@@ -86,10 +87,18 @@ bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
   createBLAS();
   createTLAS();
   createSBT();
-
+  updateDescriptorSets();
   MTX_INFO("----MTXRenderer initialized successfully-----")
   bool uiRes = InitUI(m_interface, m_interface, m_interface.getDevice(), swpFormat);
   return true;
+}
+
+void MTXRenderer::initCamera() {
+  CameraDesc desc;
+  desc.aspectRatio = (float) m_WindowResolution.x / (float) m_WindowResolution.y;
+  m_Camera.Initialize(float3(0.0), float3(0.0, 0.0, -1.0f));
+  GetCameraDescFromInputDevices(desc);
+  m_Camera.Update(desc, 0);
 }
 
 void MTXRenderer::createSwapChain(nri::Format& format) {
@@ -209,6 +218,125 @@ void MTXRenderer::createDescriptorSets() {
       m_sceneLoader->getMeshes().size()));
 }
 
+void MTXRenderer::updateDescriptorSets() {
+  std::vector<Vertex>&                   sceneVertices = m_sceneLoader->getVertices();
+  std::vector<uint32_t>&                 sceneIndices = m_sceneLoader->getIndices();
+  std::vector<Material::MaterialUniform> materials;
+  for (auto& mat : m_sceneLoader->getMaterials()) {
+    for (auto& bind : mat.m_textureMap) {
+      mat.materialUniform.textureIndices[bind.second.bindIdx] = {bind.second.textureHandle};
+    }
+    materials.push_back(mat.materialUniform);
+  }
+  std::vector<std::vector<uint32_t>> primitiveIdxDatas;
+  std::vector<RtInstanceInfo>        instanceInfo;
+  int                                primitiveOffset = 0;
+  uint32_t                           meshIdx = 0;
+  for (auto& mesh : m_sceneLoader->getMeshes()) {
+    std::vector<uint32_t> primData = m_sceneLoader->getPrimitMatIndices();
+    std::vector<uint32_t> meshPrimData(primData.begin() + primitiveOffset,
+                                       primData.begin() + primitiveOffset
+                                           + uint32_t(mesh.indexCount / 3));
+    // std::vector<uint32_t> meshPrimData(primData.begin() + primitiveOffset, primData.begin() + 500);
+    primitiveIdxDatas.push_back(meshPrimData);
+    instanceInfo.push_back({.indexOffset = mesh.indexOffset,
+                            .vertexOffset = mesh.vertexOffset,
+                            .vertexCount = mesh.vertexCount,
+                            .indexCount = mesh.indexCount,
+                            .meshIdx = meshIdx});
+    ++meshIdx;
+    primitiveOffset += (mesh.indexOffset % 3);
+  }
+
+  std::vector<std::shared_ptr<MtxTexture>> sceneTextures = m_sceneLoader->getSceneTextures();
+
+  //upload vertex Buffer
+  MtxBufferAllocInfo bufferAllocInfo{};
+  bufferAllocInfo._desc.size = sizeof(Vertex) * sceneVertices.size();
+  bufferAllocInfo._desc.usageMask = nri::BufferUsageBits::SHADER_RESOURCE_STORAGE;
+  bufferAllocInfo._desc.structureStride = 0;
+  bufferAllocInfo._name = "sceneVerticesData";
+  bufferAllocInfo._data = sceneVertices.data();
+  auto sceneVerticesBuffer = m_interface.allocateBuffer(bufferAllocInfo);
+
+  //upload index Buffer
+  bufferAllocInfo._desc.size = sizeof(uint32_t) * sceneIndices.size();
+  bufferAllocInfo._name = "sceneIndicesData";
+  bufferAllocInfo._data = sceneIndices.data();
+  auto sceneIndicesBuffer = m_interface.allocateBuffer(bufferAllocInfo);
+
+  //upload instanceInfo Buffer
+  bufferAllocInfo._desc.size = sizeof(RtInstanceInfo) * instanceInfo.size();
+  bufferAllocInfo._name = "instanceInfoData";
+  bufferAllocInfo._data = sceneIndices.data();
+  auto instanceInfoBuffer = m_interface.allocateBuffer(bufferAllocInfo);
+
+  //upload matUniform Buffer
+  bufferAllocInfo._desc.size = sizeof(Material::MaterialUniform) * materials.size();
+  bufferAllocInfo._name = "materialData";
+  bufferAllocInfo._data = materials.data();
+  auto materialBuffer = m_interface.allocateBuffer(bufferAllocInfo);
+
+  std::vector<std::shared_ptr<MtxBuffer>> primitDatas;
+  for (int i = 0; i < primitiveIdxDatas.size(); ++i) {
+    bufferAllocInfo._desc.size = sizeof(uint32_t) * primitiveIdxDatas[i].size();
+    bufferAllocInfo._name = "primitiveData" + std::to_string(i);
+    bufferAllocInfo._data = primitiveIdxDatas[i].data();
+    primitDatas.push_back(m_interface.allocateBuffer(bufferAllocInfo));
+  }
+
+  //update buffer descriptor
+  nri::BufferViewDesc bufferViewDesc{};
+  bufferViewDesc.buffer = sceneVerticesBuffer->buf;
+  bufferViewDesc.viewType = nri::BufferViewType::SHADER_RESOURCE_STORAGE;
+  bufferViewDesc.size = sceneVerticesBuffer->size();
+  bufferViewDesc.offset = 0;
+  m_interface.CreateBufferView(bufferViewDesc, sceneVerticesBuffer->bufView);
+
+  bufferViewDesc.buffer = sceneIndicesBuffer->buf;
+  bufferViewDesc.viewType = nri::BufferViewType::SHADER_RESOURCE_STORAGE;
+  bufferViewDesc.size = sceneIndicesBuffer->size();
+  bufferViewDesc.offset = 0;
+  m_interface.CreateBufferView(bufferViewDesc, sceneIndicesBuffer->bufView);
+
+  bufferViewDesc.buffer = instanceInfoBuffer->buf;
+  bufferViewDesc.viewType = nri::BufferViewType::SHADER_RESOURCE_STORAGE;
+  bufferViewDesc.size = instanceInfoBuffer->size();
+  bufferViewDesc.offset = 0;
+  m_interface.CreateBufferView(bufferViewDesc, instanceInfoBuffer->bufView);
+
+  bufferViewDesc.buffer = materialBuffer->buf;
+  bufferViewDesc.viewType = nri::BufferViewType::SHADER_RESOURCE_STORAGE;
+  bufferViewDesc.size = materialBuffer->size();
+  bufferViewDesc.offset = 0;
+  m_interface.CreateBufferView(bufferViewDesc, materialBuffer->bufView);
+
+  for (int i = 0; i < primitDatas.size(); ++i) {
+    bufferViewDesc.buffer = primitDatas[i]->buf;
+    bufferViewDesc.viewType = nri::BufferViewType::SHADER_RESOURCE_STORAGE;
+    bufferViewDesc.size = primitDatas[i]->size();
+    bufferViewDesc.offset = 0;
+    m_interface.CreateBufferView(bufferViewDesc, primitDatas[i]->bufView);
+  }
+
+  //update texture  descriptor
+  // bindless texture array
+  for (int i = 0; i < sceneTextures.size(); ++i) {
+    nri::Texture2DViewDesc desc{};
+    desc.viewType = nri::Texture2DViewType::SHADER_RESOURCE_2D;
+    desc.format = sceneTextures[i]->format();
+    m_interface.CreateTexture2DView(desc, sceneTextures[i]->imageView);
+  }
+
+  nri::DescriptorRangeUpdateDesc rangeUpdateDesc = {};
+  rangeUpdateDesc.descriptorNum = 1;
+  for (uint32_t i = 0; i < sceneTextures.size(); ++i) {
+    rangeUpdateDesc.offsetInRange = i;
+    rangeUpdateDesc.descriptors = &(sceneTextures[i]->imageView);
+    m_interface.UpdateDescriptorRanges(*m_descriptorSets[2], 0, 1, &rangeUpdateDesc);
+  }
+}
+
 void MTXRenderer::createBLAS() {
   //prepare origin geometry data
   MtxBufferAllocInfo vertGeomACInfo{};
@@ -287,9 +415,9 @@ void MTXRenderer::createTLAS() {
 
   nri::AccelerationStructureDesc tlasDesc{};
   tlasDesc.type = nri::AccelerationStructureType::TOP_LEVEL;
-  tlasDesc.flags = nri::AccelerationStructureBuildBits::ALLOW_COMPACTION
-      | nri::AccelerationStructureBuildBits::ALLOW_UPDATE
-      | nri::AccelerationStructureBuildBits::PREFER_FAST_TRACE;
+  tlasDesc.flags = nri::AccelerationStructureBuildBits::PREFER_FAST_TRACE
+      // |nri::AccelerationStructureBuildBits::ALLOW_UPDATE      //这个目前不支持
+      | nri::AccelerationStructureBuildBits::ALLOW_COMPACTION;
   tlasDesc.instanceOrGeometryObjectNum = sceneGraph->m_meshMap.size();
   m_tlas = m_interface.allocateAccStructure(tlasDesc);
   std::vector<nri::GeometryObjectInstance> geometryInstances(sceneGraph->m_meshMap.size(),
@@ -367,7 +495,22 @@ void MTXRenderer::createSBT() {
   MTX_CHECK(m_interface.UploadData(m_interface.getTransferQueue(), nullptr, 0, &dataDesc, 1));
 }
 
-void MTXRenderer::PrepareFrame(uint32_t frameIndex) { MTX_INFO("prepare frame"); }
+void MTXRenderer::updateCamera(float deltaTime) {
+  CameraDesc mainCameraDesc;
+  // if (m_KeyState[(uint32_t) Key::D]) {
+  //   int i = 0;
+  //   std::cout << "true" << std::endl;
+  // }
+  GetCameraDescFromInputDevices(mainCameraDesc);
+  m_Camera.Update(mainCameraDesc, m_frameIndex);
+}
 
-void MTXRenderer::RenderFrame(uint32_t frameIndex) { MTX_INFO("render frame"); }
+void MTXRenderer::PrepareFrame(uint32_t frameIndex) {
+  // MTX_INFO("prepare frame");
+  updateCamera(m_Timer.GetFrameTime());
+}
+
+void MTXRenderer::RenderFrame(uint32_t frameIndex) {
+  // MTX_INFO("render frame");
+}
 }// namespace MTX

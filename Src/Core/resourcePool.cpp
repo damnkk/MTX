@@ -82,12 +82,20 @@ std::shared_ptr<MtxBuffer> BufferAllocator::allocateBuffer(const MtxBufferAllocI
   std::shared_ptr<MtxBuffer> buffer = _pool.allocate(uid);
   buffer->desc = allocInfo._desc;
   _gfxInterface->CreateBuffer(_gfxInterface->getDevice(), buffer->desc, buffer->buf);
-  nri::ResourceGroupDesc resourceGroupDesc = {};
-  resourceGroupDesc.bufferNum = 1;
-  resourceGroupDesc.buffers = &(buffer->buf);
-  resourceGroupDesc.memoryLocation = allocInfo._memLocation;
-  auto res = _gfxInterface->AllocateAndBindMemory(_gfxInterface->getDevice(), resourceGroupDesc,
-                                                  &(buffer->mem));
+  // nri::ResourceGroupDesc resourceGroupDesc = {};
+  // resourceGroupDesc.bufferNum = 1;
+  // resourceGroupDesc.buffers = &(buffer->buf);
+  // resourceGroupDesc.memoryLocation = allocInfo._memLocation;
+  // auto res = _gfxInterface->AllocateAndBindMemory(_gfxInterface->getDevice(), resourceGroupDesc,
+  //                                                 &(buffer->mem));
+  nri::MemoryDesc bufferMemoryDesc = {};
+  _gfxInterface->GetBufferMemoryInfo(buffer->getBuf(), allocInfo._memLocation, bufferMemoryDesc);
+  MTX_CHECK(_gfxInterface->AllocateMemory(_gfxInterface->getDevice(), bufferMemoryDesc.type,
+                                          bufferMemoryDesc.size, buffer->mem));
+  const nri::BufferMemoryBindingDesc bufferMemoryBindingDesc = {buffer->mem, buffer->buf, 0};
+  MTX_CHECK(
+      _gfxInterface->BindBufferMemory(_gfxInterface->getDevice(), &bufferMemoryBindingDesc, 1));
+
   if (allocInfo._data) {
     nri::BufferUploadDesc uploadDesc{};
     uploadDesc.buffer = buffer->buf;

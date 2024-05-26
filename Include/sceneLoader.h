@@ -93,6 +93,7 @@ class SceneLoader {
   std::vector<uint32_t>&                    getIndices() { return m_sceneIndices; }
   std::vector<Mesh>&                        getMeshes() { return m_meshes; }
   std::vector<Material>&                    getMaterials() { return m_materials; }
+  std::vector<uint32_t>                     getPrimitMatIndices() { return m_primitMatIndices; }
 
  protected:
   void traverse(const aiScene* sourceScene, SceneGraph& sceneGraph, aiNode* node, int parent,

@@ -6,6 +6,13 @@ const uint32_t MTX_MAX_FRAME_COUNT = 3;
 struct MtxRayTracingPushConstant {
   int temp;
 };
+struct RtInstanceInfo {
+  uint32_t indexOffset = 0;
+  uint32_t vertexOffset = 0;
+  uint32_t vertexCount = 0;
+  uint32_t indexCount = 0;
+  uint32_t meshIdx = 0;
+};
 namespace utils {
 nri::AccessBits bufferUsageToAccess(nri::BufferUsageBits usage);
 }// namespace utils
