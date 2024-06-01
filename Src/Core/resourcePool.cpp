@@ -107,6 +107,7 @@ std::shared_ptr<MtxBuffer> BufferAllocator::allocateBuffer(const MtxBufferAllocI
     } else {
       uploadDesc.after = {utils::bufferUsageToAccess(allocInfo._desc.usageMask)};
     }
+    _gfxInterface->UploadData(_gfxInterface->getTransferQueue(), nullptr, 0, &uploadDesc, 1);
   };
   _gfxInterface->SetBufferDebugName(buffer->getBuf(), tempName.c_str());
   buffer->name = tempName;

@@ -2,7 +2,7 @@
 #define MTXUTILS_H
 #include "NRIFramework.h"
 namespace MTX {
-const uint32_t MTX_MAX_FRAME_COUNT = 3;
+const uint32_t MTX_MAX_FRAME_COUNT = BUFFERED_FRAME_MAX_NUM;
 struct MtxRayTracingPushConstant {
   int temp;
 };

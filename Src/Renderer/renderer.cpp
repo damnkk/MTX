@@ -12,7 +12,7 @@ struct mtxDebugAllocator {
 };
 
 MTXRenderer::~MTXRenderer() {
-  // mtxDebugAllocator* debugAllocator = (mtxDebugAllocator*) m_MemoryAllocatorInterface.userArg;
+  mtxDebugAllocator* debugAllocator = (mtxDebugAllocator*) m_MemoryAllocatorInterface.userArg;
   m_interface.WaitForIdle(m_interface.getGraphicQueue());
   m_interface.WaitForIdle(m_interface.getComputeQueue());
   m_interface.WaitForIdle(m_interface.getTransferQueue());
@@ -35,9 +35,9 @@ bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
   auto             res = nri::nriEnumerateAdapters(&bestAdaptDesc, adapterDescsNum);
   MTX_CHECK(res);
   nri::DeviceCreationDesc deviceCreationDesc = {};
-  deviceCreationDesc.graphicsAPI = nri::GraphicsAPI::VULKAN;
-  deviceCreationDesc.enableAPIValidation = true;
-  deviceCreationDesc.enableNRIValidation = false;
+  deviceCreationDesc.graphicsAPI = graphicsAPI;
+  deviceCreationDesc.enableAPIValidation = m_DebugAPI;
+  deviceCreationDesc.enableNRIValidation = true;
   deviceCreationDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
   deviceCreationDesc.adapterDesc = nullptr;
   deviceCreationDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
@@ -76,14 +76,17 @@ bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
           m_interface.CreateCommandBuffer(*(i._commandPools[poolIdx]), i._commandBuffers[cmdIdx]));
     }
   }
+
   nri::Format swpFormat = nri::Format::RGBA8_SNORM;
   createSwapChain(swpFormat);
   m_sceneLoader = std::make_shared<SceneLoader>(&m_interface);
-  m_SceneFile = "./Asset/models/DamagedHelmet/DamagedHelmet.gltf";
-  //loadScene 泄露两个
+  // m_SceneFile = "./Asset/models/DamagedHelmet/DamagedHelmet.gltf";
+  // m_sceneLoader->loadScene(m_SceneFile);
+  m_SceneFile = "./Asset/models/MetalRoughSpheres/MetalRoughSpheres.gltf";
   m_sceneLoader->loadScene(m_SceneFile);
   createRayTracingPipeline();
   createDescriptorSets();
+  createRayTracingTex(swpFormat);
   createBLAS();
   createTLAS();
   createSBT();
@@ -91,6 +94,33 @@ bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
   MTX_INFO("----MTXRenderer initialized successfully-----")
   bool uiRes = InitUI(m_interface, m_interface, m_interface.getDevice(), swpFormat);
   return true;
+}
+
+void MTXRenderer::createRayTracingTex(nri::Format fmt) {
+  MtxTextureAllocInfo texInfo{};
+  texInfo._name = "rayTracingTexture";
+  texInfo._desc.width = (uint16_t) GetWindowResolution().x;
+  texInfo._desc.height = (uint16_t) GetWindowResolution().y;
+  texInfo._desc.type = nri::TextureType::TEXTURE_2D;
+  texInfo._desc.arraySize = 1;
+  texInfo._desc.mipNum = 1;
+  texInfo._desc.sampleNum = 1;
+  texInfo._desc.depth = 1;
+  texInfo._desc.format = fmt;
+  texInfo._desc.usageMask = nri::TextureUsageBits::SHADER_RESOURCE_STORAGE;
+
+  m_rayTracingTexture = m_interface.allocateTexture(texInfo);
+  nri::Texture2DViewDesc textureViewDesc = {m_rayTracingTexture->tex,
+                                            nri::Texture2DViewType::SHADER_RESOURCE_STORAGE_2D,
+                                            fmt,
+                                            0,
+                                            1,
+                                            0,
+                                            1};
+  MTX_CHECK(m_interface.CreateTexture2DView(textureViewDesc, m_rayTracingTexture->imageView));
+
+  const nri::DescriptorRangeUpdateDesc updateDesc{&(m_rayTracingTexture->imageView), 1, 0};
+  m_interface.UpdateDescriptorRanges(*m_descriptorSets[0], 0, 1, &updateDesc);
 }
 
 void MTXRenderer::initCamera() {
@@ -130,21 +160,21 @@ void MTXRenderer::createRayTracingPipeline() {
   MtxPipelineAllocateInfo     pipelineAllocInfo{};
   nri::RayTracingPipelineDesc pipelineDesc{};
   nri::DescriptorRangeDesc    rangedescs[] = {
-      //set0
+      //set0 ---> rayTracing texture/ tlas
       {0, 1, nri::DescriptorType::STORAGE_TEXTURE, nri::StageBits::RAYGEN_SHADER, false, false},
       {1, 1, nri::DescriptorType::ACCELERATION_STRUCTURE, nri::StageBits::RAYGEN_SHADER, false,
           false},
-      //set1
+      //set1 ---> material uniform/ vertices/ indices/ instance info
       {0, 1, nri::DescriptorType::STORAGE_BUFFER, nri::StageBits::RAY_TRACING_SHADERS, false,
           false},
       {1, 1, nri::DescriptorType::STORAGE_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER, false, false},
       {2, 1, nri::DescriptorType::STORAGE_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER, false, false},
       {3, 1, nri::DescriptorType::STORAGE_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER, false, false},
-      //set2
+      //set2 ---> scene textures
       {0, static_cast<uint32_t>(m_sceneLoader->getSceneTextures().size()),
           nri::DescriptorType::TEXTURE, nri::StageBits::CLOSEST_HIT_SHADER,
           nri::VARIABLE_DESCRIPTOR_NUM, nri::DESCRIPTOR_ARRAY},
-      //set3
+      //set3 ---> primitives info
       {0, static_cast<uint32_t>(m_sceneLoader->getMeshes().size()),
           nri::DescriptorType::STORAGE_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER, false,
           nri::DESCRIPTOR_ARRAY},
@@ -325,6 +355,7 @@ void MTXRenderer::updateDescriptorSets() {
     nri::Texture2DViewDesc desc{};
     desc.viewType = nri::Texture2DViewType::SHADER_RESOURCE_2D;
     desc.format = sceneTextures[i]->format();
+    desc.texture = sceneTextures[i]->tex;
     m_interface.CreateTexture2DView(desc, sceneTextures[i]->imageView);
   }
 
@@ -334,6 +365,24 @@ void MTXRenderer::updateDescriptorSets() {
     rangeUpdateDesc.offsetInRange = i;
     rangeUpdateDesc.descriptors = &(sceneTextures[i]->imageView);
     m_interface.UpdateDescriptorRanges(*m_descriptorSets[2], 0, 1, &rangeUpdateDesc);
+  }
+
+  // update buffer descriptor
+  // bindless buffer array
+  for (int i = 0; i < m_sceneLoader->getMeshes().size(); ++i) {
+    rangeUpdateDesc.offsetInRange = i;
+    rangeUpdateDesc.descriptors = &(primitDatas[i]->bufView);
+    m_interface.UpdateDescriptorRanges(*m_descriptorSets[3], 0, 1, &rangeUpdateDesc);
+  }
+
+  nri::Descriptor* bufferRanges[4] = {materialBuffer->bufView, sceneVerticesBuffer->bufView,
+                                      sceneIndicesBuffer->bufView, instanceInfoBuffer->bufView};
+  nri::DescriptorRangeUpdateDesc bufferRangeUpdateDesc = {};
+  for (int i = 0; i < 4; ++i) {
+    bufferRangeUpdateDesc.descriptorNum = 1;
+    bufferRangeUpdateDesc.descriptors = bufferRanges + i;
+    bufferRangeUpdateDesc.offsetInRange = 0;
+    m_interface.UpdateDescriptorRanges(*m_descriptorSets[1], 0, 1, &bufferRangeUpdateDesc);
   }
 }
 
@@ -358,9 +407,9 @@ void MTXRenderer::createBLAS() {
     geomObject.type = nri::GeometryType::TRIANGLES;
     geomObject.flags = nri::BottomLevelGeometryBits::NO_DUPLICATE_ANY_HIT_INVOCATION;
     geomObject.triangles.vertexBuffer = vertexData->buf;
-    geomObject.triangles.vertexOffset = i.vertexOffset;
+    geomObject.triangles.vertexOffset = i.vertexOffset * sizeof(Vertex);
     geomObject.triangles.indexBuffer = indexData->buf;
-    geomObject.triangles.indexOffset = i.indexOffset;
+    geomObject.triangles.indexOffset = i.indexOffset * sizeof(uint32_t);
     geomObject.triangles.vertexFormat = nri::Format::RGB32_SFLOAT;
     geomObject.triangles.indexNum = i.indexCount;
     geomObject.triangles.indexType = nri::IndexType::UINT32;
@@ -437,14 +486,16 @@ void MTXRenderer::createTLAS() {
   }
   MtxBufferAllocInfo allocInfo{};
   allocInfo._memLocation = nri::MemoryLocation::HOST_UPLOAD;
-  allocInfo._desc = {.size = geometryInstances.size() * sizeof(nri::GeometryObjectInstance),
+  //if debugging on nsight
+  // allocInfo._desc = {.size = std::max((size_t) 4096, helper::GetByteSizeOf(geometryInstances)),
+  //                    .usageMask = nri::BufferUsageBits::ACCELERATION_STRUCTURE_BUILD_READ};
+  allocInfo._desc = {.size = helper::GetByteSizeOf(geometryInstances),
                      .usageMask = nri::BufferUsageBits::ACCELERATION_STRUCTURE_BUILD_READ};
   auto  instanceBuffer = m_interface.allocateBuffer(allocInfo);
   void* data = m_interface.MapBuffer(instanceBuffer->getBuf(), 0, nri::WHOLE_SIZE);
   memcpy(data, geometryInstances.data(),
          geometryInstances.size() * sizeof(nri::GeometryObjectInstance));
   m_interface.UnmapBuffer(instanceBuffer->getBuf());
-
   MtxBufferAllocInfo scratchBufferAllocInfo{};
   scratchBufferAllocInfo._desc.size =
       m_interface.GetAccelerationStructureBuildScratchBufferSize(*(m_tlas->acc));
@@ -511,6 +562,91 @@ void MTXRenderer::PrepareFrame(uint32_t frameIndex) {
 }
 
 void MTXRenderer::RenderFrame(uint32_t frameIndex) {
-  // MTX_INFO("render frame");
+  const uint32_t       bufferedFrameIndex = frameIndex % BUFFERED_FRAME_MAX_NUM;
+  const FrameResource& frame = m_frameResource[bufferedFrameIndex];
+
+  if (frameIndex >= BUFFERED_FRAME_MAX_NUM) {
+    m_interface.Wait(*frame._fence, 1 + frameIndex - BUFFERED_FRAME_MAX_NUM);
+    for (auto& cmdPool : frame._commandPools) { m_interface.ResetCommandAllocator(*cmdPool); }
+  }
+
+  const uint32_t swapImageIndex = m_interface.AcquireNextSwapChainTexture(*m_swapChain);
+
+  nri::TextureBarrierDesc textureTransitions[2] = {};
+  nri::BarrierGroupDesc   barrierGroupDesc = {};
+
+  //record
+  nri::CommandBuffer& cmdBuf = *frame._commandBuffers[0];
+  m_interface.BeginCommandBuffer(cmdBuf, m_descriptorPool);
+  {
+    textureTransitions[0].texture = (frame._frameTexture.tex);
+    textureTransitions[0].after = {nri::AccessBits::COPY_DESTINATION,
+                                   nri::Layout::COPY_DESTINATION};
+    textureTransitions[0].mipNum = 1;
+    textureTransitions[0].arraySize = 1;
+
+    textureTransitions[1].texture = m_rayTracingTexture->tex;
+    textureTransitions[1].before = {
+        frameIndex == 0 ? nri::AccessBits::UNKNOWN : nri::AccessBits::COPY_SOURCE,
+        frameIndex == 0 ? nri::Layout::UNKNOWN : nri::Layout::COPY_SOURCE};
+    textureTransitions[1].after = {nri::AccessBits::SHADER_RESOURCE_STORAGE,
+                                   nri::Layout::SHADER_RESOURCE_STORAGE};
+    textureTransitions[1].mipNum = 1;
+    textureTransitions[1].arraySize = 1;
+
+    barrierGroupDesc.textureNum = 2;
+    barrierGroupDesc.textures = textureTransitions;
+    m_interface.CmdBarrier(cmdBuf, barrierGroupDesc);
+
+    m_interface.CmdSetPipelineLayout(cmdBuf, *(m_rayTracingPipeline->pipelineLayout));
+    m_interface.CmdSetPipeline(cmdBuf, m_rayTracingPipeline->getPipeline());
+    for (uint32_t i = 0; i < helper::GetCountOf(m_descriptorSets); ++i) {
+      m_interface.CmdSetDescriptorSet(cmdBuf, i, *m_descriptorSets[i], nullptr);
+    }
+
+    nri::DispatchRaysDesc desc = {};
+    desc.raygenShader = {m_shaderBindingTable->buf, 0, m_shaderGroupIdentifierSize,
+                         m_shaderGroupIdentifierSize};
+    desc.missShaders = {m_shaderBindingTable->buf, m_missShaderOffset, m_shaderGroupIdentifierSize,
+                        m_shaderGroupIdentifierSize};
+    desc.hitShaderGroups = {m_shaderBindingTable->buf, m_hitShaderGroupOffset,
+                            m_shaderGroupIdentifierSize, m_shaderGroupIdentifierSize};
+    desc.x = (uint16_t) GetWindowResolution().x;
+    desc.y = (uint16_t) GetWindowResolution().y;
+    desc.z = 1;
+    m_interface.CmdDispatchRays(cmdBuf, desc);
+
+    textureTransitions[1].before = textureTransitions[1].after;
+    textureTransitions[1].after = {nri::AccessBits::COPY_SOURCE, nri::Layout::COPY_SOURCE};
+    barrierGroupDesc.textures = &textureTransitions[1];
+    barrierGroupDesc.textureNum = 1;
+    m_interface.CmdBarrier(cmdBuf, barrierGroupDesc);
+
+    m_interface.CmdCopyTexture(cmdBuf, *(frame._frameTexture.tex), nullptr,
+                               *(m_rayTracingTexture->tex), nullptr);
+
+    textureTransitions[0].before = textureTransitions[0].after;
+    textureTransitions[0].after = {nri::AccessBits::UNKNOWN, nri::Layout::PRESENT};
+
+    barrierGroupDesc.textureNum = 1;
+    barrierGroupDesc.textures = textureTransitions;
+    m_interface.CmdBarrier(cmdBuf, barrierGroupDesc);
+  }
+  m_interface.EndCommandBuffer(cmdBuf);
+
+  {
+    nri::FenceSubmitDesc signalFence = {};
+    signalFence.fence = frame._fence;
+    signalFence.value = 1 + frameIndex;
+
+    nri::QueueSubmitDesc submitDesc = {};
+    submitDesc.commandBufferNum = 1;
+    submitDesc.commandBuffers = &frame._commandBuffers[0];
+    submitDesc.signalFenceNum = 1;
+    submitDesc.signalFences = &signalFence;
+    m_interface.QueueSubmit(m_interface.getGraphicQueue(), submitDesc);
+  }
+
+  m_interface.QueuePresent(*m_swapChain);
 }
 }// namespace MTX

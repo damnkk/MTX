@@ -18,6 +18,7 @@ class MTXRenderer : public SampleBase {
 
  protected:
   void initCamera();
+  void createRayTracingTex(nri::Format fmt);
   void createSwapChain(nri::Format& fmt);
   void createRayTracingPipeline();
   void createDescriptorSets();
@@ -42,6 +43,7 @@ class MTXRenderer : public SampleBase {
   std::vector<std::shared_ptr<MtxAcceStructure>> m_blas;
   std::shared_ptr<MtxBuffer>                     m_shaderBindingTable;
   std::vector<nri::DescriptorSet*>               m_descriptorSets;
+  std::shared_ptr<MtxTexture>                    m_rayTracingTexture;
   //the main camera is in sampleBase,cameras down here is prepare for multi-camera rendering
   std::vector<Camera> m_cameras;
   uint32_t            m_currentFrame = 0;
