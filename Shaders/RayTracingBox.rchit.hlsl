@@ -1,4 +1,5 @@
 #include "BindingBridge.hlsli"
+#include "RayCommon.hlsli"
 struct InstanceInfo {
   int vertexOffset;
   int indexOffset;
@@ -16,18 +17,13 @@ NRI_RESOURCE(Buffer<uint4>, indexBuffer, t, 2, 1);
 // NRI_RESOURCE(Buffer<InstanceInfo>, instanceInfoBuffer, t, 3, 1);
 NRI_RESOURCE(Buffer<uint>, primitiveIndexBuffers, t, 0, 3);
 
-struct Payload {
-  float3 hitValue;
-};
-
 struct IntersectionAttributes {
   float2 barycentrics;
 };
 
-[shader("closesthit")] void closest_hit(inout Payload payload
+[shader("closesthit")] void closest_hit(inout RayRayloadType payload
                                         : SV_RayPayload,
                                           in IntersectionAttributes intersect
                                         : SV_IntersectionAttributes) {
-  float test = vertexBuffer[3];
-  payload.hitValue = float3(test, test, test);
+  payload.directLight = float3(1, 0, 0);
 }

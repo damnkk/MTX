@@ -30,9 +30,9 @@ struct Object {
 };
 
 struct MtxTextureAllocInfo {
-  nri::TextureDesc _desc;
-  std::string      _name;
-  utils::Texture*  _sourceData;
+  nri::TextureDesc  _desc;
+  std::string       _name;
+  ::utils::Texture* _sourceData;
 };
 
 struct MtxTexture : public Object {

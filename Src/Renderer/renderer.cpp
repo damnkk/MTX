@@ -28,7 +28,6 @@ MTXRenderer::~MTXRenderer() {
 }
 
 bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
-  initCamera();
   // mtxDebugAllocator* debugAllocator = (mtxDebugAllocator*) m_MemoryAllocatorInterface.userArg;
   nri::AdapterDesc bestAdaptDesc = {};
   uint32_t         adapterDescsNum = 1;
@@ -77,6 +76,7 @@ bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
     }
   }
 
+  initCamera();
   nri::Format swpFormat = nri::Format::RGBA8_SNORM;
   createSwapChain(swpFormat);
   m_sceneLoader = std::make_shared<SceneLoader>(&m_interface);
@@ -125,10 +125,19 @@ void MTXRenderer::createRayTracingTex(nri::Format fmt) {
 
 void MTXRenderer::initCamera() {
   CameraDesc desc;
-  desc.aspectRatio = (float) m_WindowResolution.x / (float) m_WindowResolution.y;
-  m_Camera.Initialize(float3(0.0), float3(0.0, 0.0, -1.0f));
+  desc.aspectRatio = float(GetWindowResolution().x) / float(GetWindowResolution().y);
+  desc.nearZ = 0.1f;
+  m_cameras.emplace_back();
+  m_cameras.front().desc.aspectRatio = (float) m_WindowResolution.x / (float) m_WindowResolution.y;
+  m_cameras.front().Initialize(float3(0.0, 0.0, 0.0), float3(0.0, -1.0, 0.0f));
+  MtxBufferAllocInfo camUnifoInfo{};
+  camUnifoInfo._name = "cameraUniform";
+  camUnifoInfo._desc.size = sizeof(CameraUniform);
+  camUnifoInfo._desc.usageMask = nri::BufferUsageBits::SHADER_RESOURCE;
+  camUnifoInfo._memLocation = nri::MemoryLocation::HOST_UPLOAD;
+  m_cameras.front().camUniformBuffer = m_interface.allocateBuffer(camUnifoInfo);
   GetCameraDescFromInputDevices(desc);
-  m_Camera.Update(desc, 0);
+  m_cameras.front().Update(desc, 0);
 }
 
 void MTXRenderer::createSwapChain(nri::Format& format) {
@@ -164,6 +173,7 @@ void MTXRenderer::createRayTracingPipeline() {
       {0, 1, nri::DescriptorType::STORAGE_TEXTURE, nri::StageBits::RAYGEN_SHADER, false, false},
       {1, 1, nri::DescriptorType::ACCELERATION_STRUCTURE, nri::StageBits::RAYGEN_SHADER, false,
           false},
+      {2, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::RAYGEN_SHADER, false, false},
       //set1 ---> material uniform/ vertices/ indices/ instance info
       {0, 1, nri::DescriptorType::STORAGE_BUFFER, nri::StageBits::RAY_TRACING_SHADERS, false,
           false},
@@ -180,10 +190,10 @@ void MTXRenderer::createRayTracingPipeline() {
           nri::DESCRIPTOR_ARRAY},
   };
 
-  std::vector<nri::DescriptorSetDesc> descs = {{0, rangedescs, 2},
-                                               {1, rangedescs + 2, 4},
-                                               {2, rangedescs + 6, 1},
-                                               {3, rangedescs + 7, 1}};
+  std::vector<nri::DescriptorSetDesc> descs = {{0, rangedescs, 3},
+                                               {1, rangedescs + 3, 4},
+                                               {2, rangedescs + 7, 1},
+                                               {3, rangedescs + 8, 1}};
 
   nri::PushConstantDesc pushConstDesc{0, sizeof(MtxRayTracingPushConstant),
                                       nri::StageBits::RAY_TRACING_SHADERS};
@@ -232,6 +242,7 @@ void MTXRenderer::createDescriptorSets() {
   desc.accelerationStructureMaxNum = 4096;
   desc.bufferMaxNum = 1024;
   desc.textureMaxNum = 1024;
+  desc.structuredBufferMaxNum = 1024;
   desc.descriptorSetMaxNum = 4096;
   desc.storageBufferMaxNum = 4096;
   m_descriptorSets.resize(4);
@@ -341,6 +352,12 @@ void MTXRenderer::updateDescriptorSets() {
   bufferViewDesc.offset = 0;
   m_interface.CreateBufferView(bufferViewDesc, materialBuffer->bufView);
 
+  bufferViewDesc.buffer = m_cameras.front().camUniformBuffer->buf;
+  bufferViewDesc.viewType = nri::BufferViewType::SHADER_RESOURCE;
+  bufferViewDesc.size = m_cameras.front().camUniformBuffer->size();
+  bufferViewDesc.offset = 0;
+  m_interface.CreateBufferView(bufferViewDesc, m_cameras.front().camUniformBuffer->bufView);
+
   for (int i = 0; i < primitDatas.size(); ++i) {
     bufferViewDesc.buffer = primitDatas[i]->buf;
     bufferViewDesc.viewType = nri::BufferViewType::SHADER_RESOURCE_STORAGE;
@@ -382,8 +399,13 @@ void MTXRenderer::updateDescriptorSets() {
     bufferRangeUpdateDesc.descriptorNum = 1;
     bufferRangeUpdateDesc.descriptors = bufferRanges + i;
     bufferRangeUpdateDesc.offsetInRange = 0;
-    m_interface.UpdateDescriptorRanges(*m_descriptorSets[1], 0, 1, &bufferRangeUpdateDesc);
+    m_interface.UpdateDescriptorRanges(*m_descriptorSets[1], i, 1, &bufferRangeUpdateDesc);
   }
+
+  bufferRangeUpdateDesc.descriptorNum = 1;
+  bufferRangeUpdateDesc.descriptors = &(m_cameras.front().camUniformBuffer->bufView);
+  bufferRangeUpdateDesc.offsetInRange = 0;
+  m_interface.UpdateDescriptorRanges(*m_descriptorSets[0], 2, 1, &bufferRangeUpdateDesc);
 }
 
 void MTXRenderer::createBLAS() {
@@ -440,11 +462,6 @@ void MTXRenderer::createBLAS() {
         *instantCmdBuf, 1, &geomObject, nri::AccelerationStructureBuildBits::PREFER_FAST_TRACE,
         *(m_blas[i]->acc), scratchBuffer->getBuf(), 0);
     m_interface.flushInstantCommandBuffer(instantCmdBuf);
-    // nri::QueueSubmitDesc queueSubmitDesc{};
-    // queueSubmitDesc.commandBufferNum = 1;
-    // queueSubmitDesc.commandBuffers = &instantCmdBuf;
-    // m_interface.QueueSubmit(m_interface.getGraphicQueue(), queueSubmitDesc);
-    // m_interface.WaitForIdle(m_interface.getGraphicQueue());
   }
   //缺少资源释放函数,整理一条链路出来
   m_interface.m_bufferAllocator->releaseBuffer(vertexData->_uid);
@@ -548,12 +565,32 @@ void MTXRenderer::createSBT() {
 
 void MTXRenderer::updateCamera(float deltaTime) {
   CameraDesc mainCameraDesc;
-  // if (m_KeyState[(uint32_t) Key::D]) {
-  //   int i = 0;
-  //   std::cout << "true" << std::endl;
-  // }
+  mainCameraDesc.aspectRatio = float(GetWindowResolution().x) / float(GetWindowResolution().y);
+  mainCameraDesc.nearZ = 0.1f;
   GetCameraDescFromInputDevices(mainCameraDesc);
-  m_Camera.Update(mainCameraDesc, m_frameIndex);
+  m_cameras.front().Update(mainCameraDesc, m_frameIndex);
+  CameraUniform uniform;
+  uniform.viewToWorld = m_cameras.front().state.mViewToWorld;
+  uniform.clipToView = m_cameras.front().state.mClipToView;
+  uniform.camPosFov.x = m_cameras.front().state.position.x;
+  uniform.camPosFov.y = m_cameras.front().state.position.y;
+  uniform.camPosFov.z = m_cameras.front().state.position.z;
+  uniform.camPosFov.w = 5.0f;
+  // nri::BufferUploadDesc uploadDesc{};
+  // uploadDesc.buffer = m_cameras.front().camUniformBuffer->buf;
+  // uploadDesc.bufferOffset = 0;
+  // uploadDesc.data = &uniform;
+  // uploadDesc.dataSize = sizeof(CameraUniform);
+  // m_interface.UploadData(m_interface.getTransferQueue(), nullptr, 0, &uploadDesc, 1);
+
+  void* data =
+      m_interface.MapBuffer(*(m_cameras.front().camUniformBuffer->buf), 0, sizeof(CameraUniform));
+  memcpy(data, &uniform, sizeof(uniform));
+  m_interface.UnmapBuffer(*(m_cameras.front().camUniformBuffer->buf));
+  data = nullptr;
+
+  // MTX_INFO("camera pos is x:{},y:{},z:{}", m_cameras.front().state.position.x,
+  //          m_cameras.front().state.position.y, m_cameras.front().state.position.z);
 }
 
 void MTXRenderer::PrepareFrame(uint32_t frameIndex) {
