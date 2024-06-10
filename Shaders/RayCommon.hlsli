@@ -31,7 +31,7 @@ struct MatUniform {
   float3 mrFactor;
   float4 intensity;
   int textureUseSetting[4];
-  int textureIndices;
+  int textureIndices[32];
 };
 
 struct Vertex {

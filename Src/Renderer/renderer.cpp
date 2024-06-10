@@ -178,7 +178,8 @@ void MTXRenderer::createRayTracingPipeline() {
           false},
       {1, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER, false,
           false},
-      {2, 1, nri::DescriptorType::STORAGE_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER, false, false},
+      {2, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER, false,
+          false},
       {3, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER, false,
           false},
       {4, 1, nri::DescriptorType::SAMPLER, nri::StageBits::RAY_TRACING_SHADERS, false, false},
@@ -188,8 +189,8 @@ void MTXRenderer::createRayTracingPipeline() {
           nri::VARIABLE_DESCRIPTOR_NUM, nri::DESCRIPTOR_ARRAY},
       //set3 ---> primitives info
       {0, static_cast<uint32_t>(m_sceneLoader->getMeshes().size()),
-          nri::DescriptorType::STORAGE_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER, false,
-          nri::DESCRIPTOR_ARRAY},
+          nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER,
+          nri::VARIABLE_DESCRIPTOR_NUM, nri::DESCRIPTOR_ARRAY},
   };
 
   std::vector<nri::DescriptorSetDesc> descs = {{0, rangedescs, 3},
@@ -280,7 +281,7 @@ void MTXRenderer::updateDescriptorSets() {
     std::vector<uint32_t> meshPrimData(primData.begin() + primitiveOffset,
                                        primData.begin() + primitiveOffset
                                            + uint32_t(mesh.indexCount / 3));
-    // std::vector<uint32_t> meshPrimData(primData.begin() + primitiveOffset, primData.begin() + 500);
+    // std::vector<uint32_t> meshPrimData(uint32_t(mesh.indexCount / 3), 1);
     primitiveIdxDatas.push_back(meshPrimData);
     instanceInfo.push_back({.indexOffset = mesh.indexOffset,
                             .vertexOffset = mesh.vertexOffset,
@@ -296,36 +297,41 @@ void MTXRenderer::updateDescriptorSets() {
   //upload vertex Buffer
   MtxBufferAllocInfo bufferAllocInfo{};
   bufferAllocInfo._desc.size = sizeof(Vertex) * sceneVertices.size();
-  bufferAllocInfo._desc.usageMask = nri::BufferUsageBits::SHADER_RESOURCE_STORAGE;
-  bufferAllocInfo._desc.structureStride = 0;
+  bufferAllocInfo._desc.usageMask = nri::BufferUsageBits::SHADER_RESOURCE;
+  bufferAllocInfo._desc.structureStride = sizeof(Vertex);
   bufferAllocInfo._name = "sceneVerticesData";
   bufferAllocInfo._data = sceneVertices.data();
   auto sceneVerticesBuffer = m_interface.allocateBuffer(bufferAllocInfo);
 
   //upload index Buffer
   bufferAllocInfo._desc.size = sizeof(uint32_t) * sceneIndices.size();
+  bufferAllocInfo._desc.usageMask = nri::BufferUsageBits::SHADER_RESOURCE;
+  bufferAllocInfo._desc.structureStride = sizeof(uint32_t);
   bufferAllocInfo._name = "sceneIndicesData";
   bufferAllocInfo._data = sceneIndices.data();
-  // bufferAllocInfo._desc.structureStride = sizeof(u32);
   auto sceneIndicesBuffer = m_interface.allocateBuffer(bufferAllocInfo);
 
   //upload instanceInfo Buffer
   bufferAllocInfo._desc.size = sizeof(RtInstanceInfo) * instanceInfo.size();
+  bufferAllocInfo._desc.structureStride = sizeof(RtInstanceInfo);
+  bufferAllocInfo._desc.usageMask = nri::BufferUsageBits::SHADER_RESOURCE;
   bufferAllocInfo._name = "instanceInfoData";
   bufferAllocInfo._data = instanceInfo.data();
-  // bufferAllocInfo._desc.structureStride = sizeof(RtInstanceInfo);
   auto instanceInfoBuffer = m_interface.allocateBuffer(bufferAllocInfo);
 
   //upload matUniform Buffer
   bufferAllocInfo._desc.size = sizeof(Material::MaterialUniform) * materials.size();
+  bufferAllocInfo._desc.structureStride = sizeof(Material::MaterialUniform);
+  bufferAllocInfo._desc.usageMask = nri::BufferUsageBits::SHADER_RESOURCE;
   bufferAllocInfo._name = "materialData";
   bufferAllocInfo._data = materials.data();
-  // bufferAllocInfo._desc.structureStride = sizeof(Material::MaterialUniform);
   auto materialBuffer = m_interface.allocateBuffer(bufferAllocInfo);
 
   std::vector<std::shared_ptr<MtxBuffer>> primitDatas;
   for (int i = 0; i < primitiveIdxDatas.size(); ++i) {
     bufferAllocInfo._desc.size = sizeof(uint32_t) * primitiveIdxDatas[i].size();
+    bufferAllocInfo._desc.structureStride = 0;
+    bufferAllocInfo._desc.usageMask = nri::BufferUsageBits::SHADER_RESOURCE_STORAGE;
     bufferAllocInfo._name = "primitiveData" + std::to_string(i);
     bufferAllocInfo._data = primitiveIdxDatas[i].data();
     primitDatas.push_back(m_interface.allocateBuffer(bufferAllocInfo));
@@ -413,10 +419,11 @@ void MTXRenderer::updateDescriptorSets() {
     m_interface.UpdateDescriptorRanges(*m_descriptorSets[3], 0, 1, &rangeUpdateDesc);
   }
 
-  nri::Descriptor* bufferRanges[4] = {materialBuffer->bufView, sceneVerticesBuffer->bufView,
-                                      sceneIndicesBuffer->bufView, instanceInfoBuffer->bufView};
+  nri::Descriptor* bufferRanges[5] = {materialBuffer->bufView, sceneVerticesBuffer->bufView,
+                                      sceneIndicesBuffer->bufView, instanceInfoBuffer->bufView,
+                                      m_sampler};
   nri::DescriptorRangeUpdateDesc bufferRangeUpdateDesc = {};
-  for (int i = 0; i < 4; ++i) {
+  for (int i = 0; i < helper::GetCountOf(bufferRanges); ++i) {
     bufferRangeUpdateDesc.descriptorNum = 1;
     bufferRangeUpdateDesc.descriptors = bufferRanges + i;
     bufferRangeUpdateDesc.offsetInRange = 0;

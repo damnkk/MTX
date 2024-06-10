@@ -1,12 +1,12 @@
-#include "BindingBridge.hlsli"
+#include "NRICompatibility.hlsli"
 #include "RayCommon.hlsli"
 
 NRI_RESOURCE(StructuredBuffer<MatUniform>, matUniformBuffer, t, 0, 1);
 NRI_RESOURCE(StructuredBuffer<Vertex>, vertexBuffer, t, 1, 1);
-NRI_RESOURCE(Buffer<uint>, indexBuffer, t, 2, 1);
+NRI_RESOURCE(StructuredBuffer<uint>, indexBuffer, t, 2, 1);
 NRI_RESOURCE(StructuredBuffer<InstanceInfo>, instanceInfoBuffer, t, 3, 1);
 NRI_RESOURCE(Texture2D<float4>, sceneTextures[], t, 0, 2);
-NRI_RESOURCE(Buffer<uint>, primitiveIndexBuffers[], t, 0, 3);
+NRI_RESOURCE(StructuredBuffer<uint>, primitiveIndexBuffers[], t, 0, 3);
 NRI_RESOURCE(sampler, Sampler, s, 0, 1);
 
 struct IntersectionAttributes {
@@ -42,8 +42,8 @@ struct IntersectionAttributes {
                    v2.texcoord * (1.0f - intersect.barycentrics.x -
                                   intersect.barycentrics.y);
 
-  payload.directLight = float3(1.0f, 0.0f, 0.0f);
-  if (u0 > 100) {
-    payload.directLight = float3(1.0f, 1.0f, 1.0f);
-  }
+  payload.directLight = float3(float(0.0), float(materialIdx), float(0.0));
+  // if (u0 > 100) {
+  //   payload.directLight = float3(1.0f, 1.0f, 1.0f);
+  // }
 }

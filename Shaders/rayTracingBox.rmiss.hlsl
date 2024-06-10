@@ -1,4 +1,4 @@
-#include "BindingBridge.hlsli"
+#include "NRICompatibility.hlsli"
 #include "RayCommon.hlsli"
 
 [shader("miss")] void miss(inout RayRayloadType payload

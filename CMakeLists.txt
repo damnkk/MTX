@@ -26,6 +26,7 @@ add_custom_target (${PROJECT_NAME}_Shaders ALL
                 -I "Shaders"
                 -I "External"
                 -I "External/NRIFramework/External"
+                -I "External/NRIFramework/External/NRI/Include"
                 -D COMPILER_DXC
             COMMAND ShaderMake --useAPI
                 --binary --flatten --stripReflection --compiler "${DXC_SPIRV_PATH}"
@@ -36,6 +37,7 @@ add_custom_target (${PROJECT_NAME}_Shaders ALL
                 -I "Shaders"
                 -I "External"
                 -I "External/NRIFramework/External"
+                -I "External/NRIFramework/External/NRI/Include"
                 -D COMPILER_DXC
                 -D VULKAN
   

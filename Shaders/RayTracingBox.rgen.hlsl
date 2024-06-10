@@ -1,4 +1,4 @@
-#include "BindingBridge.hlsli"
+#include "NRICompatibility.hlsli"
 #include "RayCommon.hlsli"
 
 NRI_RESOURCE(RWTexture2D<float4>, outputImage, u, 0, 0);
