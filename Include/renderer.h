@@ -47,13 +47,14 @@ class MTXRenderer : public SampleBase {
   std::vector<nri::DescriptorSet*>               m_descriptorSets;
   std::shared_ptr<MtxTexture>                    m_rayTracingTexture;
   //the main camera is in sampleBase,cameras down here is prepare for multi-camera rendering
-  std::vector<MtxCamera> m_cameras;
-  uint32_t               m_currentFrame = 0;
-  uint32_t               m_frameIndex = 0;
-  uint64_t               m_shaderGroupIdentifierSize = 0;
-  uint64_t               m_missShaderOffset = 0;
-  uint64_t               m_hitShaderGroupOffset = 0;
-  uint32_t               m_threadNum = 12;
+  std::vector<MtxCamera>    m_cameras;
+  MtxRayTracingPushConstant m_constant;
+  uint32_t                  m_currentFrame = 0;
+  uint32_t                  m_frameIndex = 0;
+  uint64_t                  m_shaderGroupIdentifierSize = 0;
+  uint64_t                  m_missShaderOffset = 0;
+  uint64_t                  m_hitShaderGroupOffset = 0;
+  uint32_t                  m_threadNum = 12;
 };
 }// namespace MTX
 

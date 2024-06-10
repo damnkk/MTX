@@ -168,11 +168,12 @@ void MTXRenderer::createRayTracingPipeline() {
   MtxPipelineAllocateInfo     pipelineAllocInfo{};
   nri::RayTracingPipelineDesc pipelineDesc{};
   nri::DescriptorRangeDesc    rangedescs[] = {
-      //set0 ---> rayTracing texture/ tlas
+      //set0 ---> rayTracing texture/ tlas / camera uniform
       {0, 1, nri::DescriptorType::STORAGE_TEXTURE, nri::StageBits::RAYGEN_SHADER, false, false},
       {1, 1, nri::DescriptorType::ACCELERATION_STRUCTURE, nri::StageBits::RAYGEN_SHADER, false,
           false},
-      {2, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::RAYGEN_SHADER, false, false},
+      {2, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::RAY_TRACING_SHADERS, false,
+          false},
       //set1 ---> material uniform/ vertices/ indices/ instance info/textureSampler
       {0, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::RAY_TRACING_SHADERS, false,
           false},
@@ -243,6 +244,7 @@ void MTXRenderer::createDescriptorSets() {
   nri::DescriptorPoolDesc desc{};
   desc.storageTextureMaxNum = MTX_MAX_FRAME_COUNT;
   desc.accelerationStructureMaxNum = 4096;
+  desc.samplerMaxNum = 8;
   desc.bufferMaxNum = 1024;
   desc.textureMaxNum = 1024;
   desc.structuredBufferMaxNum = 1024;
@@ -406,10 +408,10 @@ void MTXRenderer::updateDescriptorSets() {
   }
 
   // update texture sampler
-  // rangeUpdateDesc.descriptorNum = 1;
-  // rangeUpdateDesc.descriptors = &m_sampler;
-  // rangeUpdateDesc.offsetInRange = 4;
-  // m_interface.UpdateDescriptorRanges(*m_descriptorSets[1], 0, 1, &rangeUpdateDesc);
+  rangeUpdateDesc.descriptorNum = 1;
+  rangeUpdateDesc.descriptors = &m_sampler;
+  rangeUpdateDesc.offsetInRange = 4;
+  m_interface.UpdateDescriptorRanges(*m_descriptorSets[1], 0, 1, &rangeUpdateDesc);
 
   // update buffer descriptor
   // bindless buffer array
@@ -452,18 +454,19 @@ void MTXRenderer::createBLAS() {
   uint64_t                         scratchBufferSize = 0;
   std::vector<nri::GeometryObject> geomObjects;
   geomObjects.reserve(m_sceneLoader->getMeshes().size());
+  int meshIdx = 0;
   for (auto& i : m_sceneLoader->getMeshes()) {
     nri::GeometryObject geomObject{};
     geomObject.type = nri::GeometryType::TRIANGLES;
     geomObject.flags = nri::BottomLevelGeometryBits::NO_DUPLICATE_ANY_HIT_INVOCATION;
     geomObject.triangles.vertexBuffer = vertexData->buf;
     geomObject.triangles.vertexOffset = i.vertexOffset * sizeof(Vertex);
+    geomObject.triangles.vertexNum = i.vertexCount;
     geomObject.triangles.indexBuffer = indexData->buf;
-    geomObject.triangles.indexOffset = i.indexOffset * sizeof(uint32_t);
     geomObject.triangles.vertexFormat = nri::Format::RGB32_SFLOAT;
+    geomObject.triangles.indexOffset = i.indexOffset * sizeof(uint32_t);
     geomObject.triangles.indexNum = i.indexCount;
     geomObject.triangles.indexType = nri::IndexType::UINT32;
-    geomObject.triangles.vertexNum = i.vertexCount;
     geomObject.triangles.vertexStride = sizeof(Vertex);
 
     nri::AccelerationStructureDesc blasDesc{};
@@ -471,12 +474,15 @@ void MTXRenderer::createBLAS() {
     blasDesc.type = nri::AccelerationStructureType::BOTTOM_LEVEL;
     blasDesc.geometryObjects = &geomObject;
     blasDesc.instanceOrGeometryObjectNum = 1;
-    auto blas = m_interface.allocateAccStructure(blasDesc);
+    auto        blas = m_interface.allocateAccStructure(blasDesc);
+    std::string blasName = "blas" + std::to_string(meshIdx);
+    m_interface.SetAccelerationStructureDebugName(*(blas->acc), blasName.c_str());
     m_blas.push_back(blas);
     geomObjects.push_back(geomObject);
     scratchBufferSize =
         std::max(scratchBufferSize,
                  m_interface.GetAccelerationStructureBuildScratchBufferSize(*(blas->acc)));
+    ++meshIdx;
   }
   //build blas
   MtxBufferAllocInfo scratchAllocInfo{};
@@ -518,16 +524,15 @@ void MTXRenderer::createTLAS() {
                                                              nri::GeometryObjectInstance{});
   //再次整理,tlas是blas的索引,blas是每个实际网格数据对应有的东西,但是一个blas带上不同的变换,会得到多个tlas
   //sceneGraph的meshMap是<节点ID,网格索引>
-  int instanceCnt = 0;
+
   for (auto& mesh : sceneGraph->m_meshMap) {
-    nri::GeometryObjectInstance& instance = geometryInstances[instanceCnt];
+    nri::GeometryObjectInstance& instance = geometryInstances[mesh.second];
     instance.accelerationStructureHandle =
         m_interface.GetAccelerationStructureHandle(*(m_blas[mesh.second]->acc));
-    instance.instanceId = instanceCnt;
+    instance.instanceId = mesh.second;
     glm::mat4 globalTrans = sceneGraph->getGlobalTransformsFromIdx(mesh.first);
     toTransformMatrixKHR(globalTrans, instance.transform);
     instance.mask = 0xff;
-    ++instanceCnt;
   }
   MtxBufferAllocInfo allocInfo{};
   allocInfo._memLocation = nri::MemoryLocation::HOST_UPLOAD;
@@ -548,7 +553,7 @@ void MTXRenderer::createTLAS() {
   auto scratchBuffer = m_interface.allocateBuffer(scratchBufferAllocInfo);
   auto cmd = m_interface.getInstantCommandBuffer();
   m_interface.CmdBuildTopLevelAccelerationStructure(
-      *cmd, instanceCnt, instanceBuffer->getBuf(), 0,
+      *cmd, sceneGraph->m_meshMap.size(), instanceBuffer->getBuf(), 0,
       nri::AccelerationStructureBuildBits::PREFER_FAST_TRACE, *(m_tlas->acc),
       scratchBuffer->getBuf(), 0);
   m_interface.flushInstantCommandBuffer(cmd);
@@ -678,6 +683,7 @@ void MTXRenderer::RenderFrame(uint32_t frameIndex) {
     desc.x = (uint16_t) GetWindowResolution().x;
     desc.y = (uint16_t) GetWindowResolution().y;
     desc.z = 1;
+    m_interface.CmdSetConstants(cmdBuf, 0, &m_constant, sizeof(MtxRayTracingPushConstant));
     m_interface.CmdDispatchRays(cmdBuf, desc);
 
     textureTransitions[1].before = textureTransitions[1].after;

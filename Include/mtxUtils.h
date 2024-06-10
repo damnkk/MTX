@@ -5,7 +5,7 @@
 namespace MTX {
 const uint32_t MTX_MAX_FRAME_COUNT = BUFFERED_FRAME_MAX_NUM;
 struct MtxRayTracingPushConstant {
-  int temp;
+  uint32_t accumFrameCount;
 };
 struct RtInstanceInfo {
   uint32_t indexOffset = 0;
