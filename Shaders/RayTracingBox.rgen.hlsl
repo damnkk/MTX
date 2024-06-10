@@ -48,4 +48,5 @@ struct Payload {
            rayDesc, payLoad);
 
   outputImage[dispatchRaysIndex] = float4(payLoad.directLight, 1.0f);
+  // outputImage[dispatchRaysIndex] = float4(inUV, 0, 1.0f);
 }

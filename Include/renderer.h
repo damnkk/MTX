@@ -37,6 +37,7 @@ class MTXRenderer : public SampleBase {
   nri::Streamer*                                 m_streamer = nullptr;
   nri::QueryPool*                                m_queryPool = nullptr;
   nri::DescriptorPool*                           m_descriptorPool = nullptr;
+  nri::Descriptor*                               m_sampler = nullptr;
   std::shared_ptr<MtxPipeline>                   m_rayTracingPipeline = nullptr;
   std::vector<FrameResource>                     m_frameResource;
   std::shared_ptr<SceneLoader>                   m_sceneLoader = nullptr;

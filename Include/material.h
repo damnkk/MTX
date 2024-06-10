@@ -16,20 +16,20 @@ class Material {
     int bindIdx = -1;
   };
 
-  struct alignas(16) MaterialUniform {
-    alignas(16) glm::mat4 modelMatrix = glm::mat4(1.0f);
-    alignas(16) glm::vec4 baseColorFactor = glm::vec4(glm::vec3(0.3f), 1.0f);
-    alignas(16) glm::vec3 emissiveFactor = glm::vec3(0.0f);
+  struct MaterialUniform {
+    glm::mat4 modelMatrix = glm::mat4(1.0f);
+    glm::vec4 baseColorFactor = glm::vec4(glm::vec3(0.3f), 1.0f);
+    glm::vec3 emissiveFactor = glm::vec3(0.0f);
 
     //envrotate, envExposure, envGamma
-    alignas(16) glm::vec3 envFactor = glm::vec3(1.0f, 2.5f, 1.2f);
+    glm::vec3 envFactor = glm::vec3(1.0f, .5f, 1.0f);
     //metallic, roughness, ao intensity
-    alignas(16) glm::vec3 mrFactor = glm::vec3(1.0f, 1.0f, 1.0f);
+    glm::vec3 mrFactor = glm::vec3(1.0f, 1.0f, 1.0f);
     //normal intensity,emissive intensity,transMission
-    alignas(16) glm::vec4 intensity = glm::vec4(1.0f);
+    glm::vec4 intensity = glm::vec4(1.0f);
     //use albedo,normal/mrao/emissive
-    alignas(16) aliInt textureUseSetting[4] = {1, 1, 1, 1};
-    alignas(16) aliInt textureIndices[MAX_MATERIAL_TEXTURE_CNT];
+    int textureUseSetting[4] = {1, 1, 1, 1};
+    int textureIndices[MAX_MATERIAL_TEXTURE_CNT];
   } materialUniform;
 
   Material();

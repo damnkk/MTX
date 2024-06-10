@@ -19,7 +19,7 @@ MTXRenderer::~MTXRenderer() {
   for (auto& frameRes : m_frameResource) { frameRes.destroy(&m_interface); }
   m_interface.DestroySwapChain(*m_swapChain);
   m_interface.DestroyDescriptorPool(*m_descriptorPool);
-
+  m_interface.DestroyDescriptor(*m_sampler);
   m_interface.destroy();
 
   DestroyUI(m_interface);
@@ -36,7 +36,7 @@ bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
   nri::DeviceCreationDesc deviceCreationDesc = {};
   deviceCreationDesc.graphicsAPI = graphicsAPI;
   deviceCreationDesc.enableAPIValidation = m_DebugAPI;
-  deviceCreationDesc.enableNRIValidation = true;
+  deviceCreationDesc.enableNRIValidation = m_DebugNRI;
   deviceCreationDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
   deviceCreationDesc.adapterDesc = nullptr;
   deviceCreationDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
@@ -92,8 +92,7 @@ bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
   createSBT();
   updateDescriptorSets();
   MTX_INFO("----MTXRenderer initialized successfully-----")
-  bool uiRes = InitUI(m_interface, m_interface, m_interface.getDevice(), swpFormat);
-  return true;
+  return InitUI(m_interface, m_interface, m_interface.getDevice(), swpFormat);
 }
 
 void MTXRenderer::createRayTracingTex(nri::Format fmt) {
@@ -174,12 +173,15 @@ void MTXRenderer::createRayTracingPipeline() {
       {1, 1, nri::DescriptorType::ACCELERATION_STRUCTURE, nri::StageBits::RAYGEN_SHADER, false,
           false},
       {2, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::RAYGEN_SHADER, false, false},
-      //set1 ---> material uniform/ vertices/ indices/ instance info
-      {0, 1, nri::DescriptorType::STORAGE_BUFFER, nri::StageBits::RAY_TRACING_SHADERS, false,
+      //set1 ---> material uniform/ vertices/ indices/ instance info/textureSampler
+      {0, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::RAY_TRACING_SHADERS, false,
           false},
-      {1, 1, nri::DescriptorType::STORAGE_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER, false, false},
+      {1, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER, false,
+          false},
       {2, 1, nri::DescriptorType::STORAGE_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER, false, false},
-      {3, 1, nri::DescriptorType::STORAGE_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER, false, false},
+      {3, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER, false,
+          false},
+      {4, 1, nri::DescriptorType::SAMPLER, nri::StageBits::RAY_TRACING_SHADERS, false, false},
       //set2 ---> scene textures
       {0, static_cast<uint32_t>(m_sceneLoader->getSceneTextures().size()),
           nri::DescriptorType::TEXTURE, nri::StageBits::CLOSEST_HIT_SHADER,
@@ -191,9 +193,9 @@ void MTXRenderer::createRayTracingPipeline() {
   };
 
   std::vector<nri::DescriptorSetDesc> descs = {{0, rangedescs, 3},
-                                               {1, rangedescs + 3, 4},
-                                               {2, rangedescs + 7, 1},
-                                               {3, rangedescs + 8, 1}};
+                                               {1, rangedescs + 3, 5},
+                                               {2, rangedescs + 8, 1},
+                                               {3, rangedescs + 9, 1}};
 
   nri::PushConstantDesc pushConstDesc{0, sizeof(MtxRayTracingPushConstant),
                                       nri::StageBits::RAY_TRACING_SHADERS};
@@ -304,18 +306,21 @@ void MTXRenderer::updateDescriptorSets() {
   bufferAllocInfo._desc.size = sizeof(uint32_t) * sceneIndices.size();
   bufferAllocInfo._name = "sceneIndicesData";
   bufferAllocInfo._data = sceneIndices.data();
+  // bufferAllocInfo._desc.structureStride = sizeof(u32);
   auto sceneIndicesBuffer = m_interface.allocateBuffer(bufferAllocInfo);
 
   //upload instanceInfo Buffer
   bufferAllocInfo._desc.size = sizeof(RtInstanceInfo) * instanceInfo.size();
   bufferAllocInfo._name = "instanceInfoData";
-  bufferAllocInfo._data = sceneIndices.data();
+  bufferAllocInfo._data = instanceInfo.data();
+  // bufferAllocInfo._desc.structureStride = sizeof(RtInstanceInfo);
   auto instanceInfoBuffer = m_interface.allocateBuffer(bufferAllocInfo);
 
   //upload matUniform Buffer
   bufferAllocInfo._desc.size = sizeof(Material::MaterialUniform) * materials.size();
   bufferAllocInfo._name = "materialData";
   bufferAllocInfo._data = materials.data();
+  // bufferAllocInfo._desc.structureStride = sizeof(Material::MaterialUniform);
   auto materialBuffer = m_interface.allocateBuffer(bufferAllocInfo);
 
   std::vector<std::shared_ptr<MtxBuffer>> primitDatas;
@@ -358,6 +363,16 @@ void MTXRenderer::updateDescriptorSets() {
   bufferViewDesc.offset = 0;
   m_interface.CreateBufferView(bufferViewDesc, m_cameras.front().camUniformBuffer->bufView);
 
+  nri::SamplerDesc samplerDesc{};
+  samplerDesc.addressModes.u = nri::AddressMode::REPEAT;
+  samplerDesc.addressModes.v = nri::AddressMode::REPEAT;
+  samplerDesc.anisotropy = 1;
+  samplerDesc.filters.min = nri::Filter::LINEAR;
+  samplerDesc.filters.mag = nri::Filter::LINEAR;
+  samplerDesc.filters.mip = nri::Filter::LINEAR;
+  samplerDesc.mipMax = 16.0f;
+  MTX_CHECK(m_interface.CreateSampler(m_interface.getDevice(), samplerDesc, m_sampler));
+
   for (int i = 0; i < primitDatas.size(); ++i) {
     bufferViewDesc.buffer = primitDatas[i]->buf;
     bufferViewDesc.viewType = nri::BufferViewType::SHADER_RESOURCE_STORAGE;
@@ -383,6 +398,12 @@ void MTXRenderer::updateDescriptorSets() {
     rangeUpdateDesc.descriptors = &(sceneTextures[i]->imageView);
     m_interface.UpdateDescriptorRanges(*m_descriptorSets[2], 0, 1, &rangeUpdateDesc);
   }
+
+  // update texture sampler
+  // rangeUpdateDesc.descriptorNum = 1;
+  // rangeUpdateDesc.descriptors = &m_sampler;
+  // rangeUpdateDesc.offsetInRange = 4;
+  // m_interface.UpdateDescriptorRanges(*m_descriptorSets[1], 0, 1, &rangeUpdateDesc);
 
   // update buffer descriptor
   // bindless buffer array
@@ -559,7 +580,6 @@ void MTXRenderer::createSBT() {
   dataDesc.dataSize = content.size();
   dataDesc.buffer = m_shaderBindingTable->buf;
   dataDesc.after = {nri::AccessBits::UNKNOWN};
-
   MTX_CHECK(m_interface.UploadData(m_interface.getTransferQueue(), nullptr, 0, &dataDesc, 1));
 }
 

@@ -15,11 +15,28 @@ struct CameraUniform {
   // float2 placeHoader;
 };
 
-struct Test {
-  int tt;
-  int tt2;
-  int tt3;
-  int tt4;
-  int tt5;
-  int tt6;
+struct InstanceInfo {
+  uint indexOffset;
+  uint vertexOffset;
+  uint vertexCount;
+  uint indexCount;
+  uint primitiveInfoIdx;
+};
+
+struct MatUniform {
+  float4x4 modelMatrix;
+  float4 baseColorFactor;
+  float3 emissiveFactor;
+  float3 envFactor;
+  float3 mrFactor;
+  float4 intensity;
+  int textureUseSetting[4];
+  int textureIndices;
+};
+
+struct Vertex {
+  float3 position;
+  float3 normal;
+  float4 tangent;
+  float2 texcoord;
 };
