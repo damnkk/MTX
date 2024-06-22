@@ -41,6 +41,7 @@ class Material {
   void setMRTexture(int textureIdx);
   void setEmissiveTexture(int textureIdx);
   void setAoTexture(int textureIdx);
+  void setEnvTexture(int textureIdx);
 
   MTXRenderer*                                 m_renderer;
   std::unordered_map<std::string, TextureBind> m_textureMap;

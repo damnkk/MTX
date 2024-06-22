@@ -1,7 +1,18 @@
 #include "NRICompatibility.hlsli"
 #include "RayCommon.hlsli"
 
+NRI_RESOURCE(Texture2D<float4>, envTextures[], t, 0, 3);
+NRI_RESOURCE(SamplerState, Sampler, s, 4, 1);
+NRI_RESOURCE(StructuredBuffer<CameraUniform>, cameraUniform, t, 2, 0);
+
 [shader("miss")] void miss(inout RayRayloadType payload
                            : SV_RayPayload) {
-  payload.directLight = float3(0, 1, 1);
+  float2 uv = directionToSphericalEnvmap(payload.nextRayDirection);
+  Texture2D env = envTextures[0];
+
+  if (payload.level == 0) {
+    payload.directLight = env.SampleLevel(Sampler, uv, 0.0);
+  } else {
+    payload.directLight = float4(uv, 0.0f, 1.0f);
+  }
 }

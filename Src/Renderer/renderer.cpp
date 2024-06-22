@@ -80,10 +80,11 @@ bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
   nri::Format swpFormat = nri::Format::RGBA8_SNORM;
   createSwapChain(swpFormat);
   m_sceneLoader = std::make_shared<SceneLoader>(&m_interface);
-  // m_SceneFile = "./Asset/models/DamagedHelmet/DamagedHelmet.gltf";
-  // m_sceneLoader->loadScene(m_SceneFile);
-  m_SceneFile = "./Asset/models/MetalRoughSpheres/MetalRoughSpheres.gltf";
+  m_sceneLoader->addEnvTexture("E:/repository/MTX/Asset/hdrTex/symmetrical_garden_02_2k.hdr");
+  m_SceneFile = "./Asset/models/DamagedHelmet/DamagedHelmet.gltf";
   m_sceneLoader->loadScene(m_SceneFile);
+  // m_SceneFile = "./Asset/models/MetalRoughSpheres/MetalRoughSpheres.gltf";
+  // m_sceneLoader->loadScene(m_SceneFile);
   createRayTracingPipeline();
   createDescriptorSets();
   createRayTracingTex(swpFormat);
@@ -127,7 +128,6 @@ void MTXRenderer::initCamera() {
   desc.aspectRatio = float(GetWindowResolution().x) / float(GetWindowResolution().y);
   desc.nearZ = 0.1f;
   m_cameras.emplace_back();
-  m_cameras.front().desc.aspectRatio = (float) m_WindowResolution.x / (float) m_WindowResolution.y;
   m_cameras.front().Initialize(float3(0.0, 0.0, 0.0), float3(0.0, -1.0, 0.0f));
   MtxBufferAllocInfo camUnifoInfo{};
   camUnifoInfo._name = "cameraUniform";
@@ -136,7 +136,7 @@ void MTXRenderer::initCamera() {
   camUnifoInfo._memLocation = nri::MemoryLocation::HOST_UPLOAD;
   m_cameras.front().camUniformBuffer = m_interface.allocateBuffer(camUnifoInfo);
   GetCameraDescFromInputDevices(desc);
-  m_cameras.front().Update(desc, 0);
+  m_cameras.front().updateState(desc, 0, m_Timer.GetFrameTime());
 }
 
 void MTXRenderer::createSwapChain(nri::Format& format) {
@@ -188,7 +188,11 @@ void MTXRenderer::createRayTracingPipeline() {
       {0, static_cast<uint32_t>(m_sceneLoader->getSceneTextures().size()),
           nri::DescriptorType::TEXTURE, nri::StageBits::CLOSEST_HIT_SHADER,
           nri::VARIABLE_DESCRIPTOR_NUM, nri::DESCRIPTOR_ARRAY},
-      //set3 ---> primitives info
+      //set3 ---> env textures
+      {0, static_cast<uint32_t>(m_sceneLoader->getEnvTextures().size()),
+          nri::DescriptorType::TEXTURE, nri::StageBits::MISS_SHADER, nri::VARIABLE_DESCRIPTOR_NUM,
+          nri::DESCRIPTOR_ARRAY},
+      //set4 ---> primitives info
       {0, static_cast<uint32_t>(m_sceneLoader->getMeshes().size()),
           nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER,
           nri::VARIABLE_DESCRIPTOR_NUM, nri::DESCRIPTOR_ARRAY},
@@ -197,7 +201,8 @@ void MTXRenderer::createRayTracingPipeline() {
   std::vector<nri::DescriptorSetDesc> descs = {{0, rangedescs, 3},
                                                {1, rangedescs + 3, 5},
                                                {2, rangedescs + 8, 1},
-                                               {3, rangedescs + 9, 1}};
+                                               {3, rangedescs + 9, 1},
+                                               {4, rangedescs + 10, 1}};
 
   nri::PushConstantDesc pushConstDesc{0, sizeof(MtxRayTracingPushConstant),
                                       nri::StageBits::RAY_TRACING_SHADERS};
@@ -227,7 +232,7 @@ void MTXRenderer::createRayTracingPipeline() {
 
   nri::ShaderGroupDesc groupDesc[] = {{1}, {2}, {3}};
 
-  pipelineDesc.recursionDepthMax = 8;
+  pipelineDesc.recursionDepthMax = m_maxBounce;
   pipelineDesc.payloadAttributeSizeMax = 128;
   pipelineDesc.intersectionAttributeSizeMax = 128;
   pipelineDesc.pipelineLayout = layout;
@@ -250,7 +255,7 @@ void MTXRenderer::createDescriptorSets() {
   desc.structuredBufferMaxNum = 1024;
   desc.descriptorSetMaxNum = 4096;
   desc.storageBufferMaxNum = 4096;
-  m_descriptorSets.resize(4);
+  m_descriptorSets.resize(5);
   MTX_CHECK(m_interface.CreateDescriptorPool(m_interface.getDevice(), desc, m_descriptorPool));
   MTX_CHECK(m_interface.AllocateDescriptorSets(
       *m_descriptorPool, *(m_rayTracingPipeline->pipelineLayout), 0, &m_descriptorSets[0], 1, 0));
@@ -261,6 +266,9 @@ void MTXRenderer::createDescriptorSets() {
       m_sceneLoader->getSceneTextures().size()));
   MTX_CHECK(m_interface.AllocateDescriptorSets(
       *m_descriptorPool, *(m_rayTracingPipeline->pipelineLayout), 3, &m_descriptorSets[3], 1,
+      m_sceneLoader->getEnvTextures().size()));
+  MTX_CHECK(m_interface.AllocateDescriptorSets(
+      *m_descriptorPool, *(m_rayTracingPipeline->pipelineLayout), 4, &m_descriptorSets[4], 1,
       m_sceneLoader->getMeshes().size()));
 }
 
@@ -295,6 +303,7 @@ void MTXRenderer::updateDescriptorSets() {
   }
 
   std::vector<std::shared_ptr<MtxTexture>> sceneTextures = m_sceneLoader->getSceneTextures();
+  std::vector<std::shared_ptr<MtxTexture>> envTextures = m_sceneLoader->getEnvTextures();
 
   //upload vertex Buffer
   MtxBufferAllocInfo bufferAllocInfo{};
@@ -399,12 +408,26 @@ void MTXRenderer::updateDescriptorSets() {
     m_interface.CreateTexture2DView(desc, sceneTextures[i]->imageView);
   }
 
+  for (int i = 0; i < envTextures.size(); ++i) {
+    nri::Texture2DViewDesc desc{};
+    desc.viewType = nri::Texture2DViewType::SHADER_RESOURCE_2D;
+    desc.format = envTextures[i]->format();
+    desc.texture = envTextures[i]->tex;
+    m_interface.CreateTexture2DView(desc, envTextures[i]->imageView);
+  }
+
   nri::DescriptorRangeUpdateDesc rangeUpdateDesc = {};
   rangeUpdateDesc.descriptorNum = 1;
   for (uint32_t i = 0; i < sceneTextures.size(); ++i) {
     rangeUpdateDesc.offsetInRange = i;
     rangeUpdateDesc.descriptors = &(sceneTextures[i]->imageView);
     m_interface.UpdateDescriptorRanges(*m_descriptorSets[2], 0, 1, &rangeUpdateDesc);
+  }
+
+  for (uint32_t i = 0; i < envTextures.size(); ++i) {
+    rangeUpdateDesc.offsetInRange = i;
+    rangeUpdateDesc.descriptors = &(envTextures[i]->imageView);
+    m_interface.UpdateDescriptorRanges(*m_descriptorSets[3], 0, 1, &rangeUpdateDesc);
   }
 
   // update texture sampler
@@ -418,7 +441,7 @@ void MTXRenderer::updateDescriptorSets() {
   for (int i = 0; i < m_sceneLoader->getMeshes().size(); ++i) {
     rangeUpdateDesc.offsetInRange = i;
     rangeUpdateDesc.descriptors = &(primitDatas[i]->bufView);
-    m_interface.UpdateDescriptorRanges(*m_descriptorSets[3], 0, 1, &rangeUpdateDesc);
+    m_interface.UpdateDescriptorRanges(*m_descriptorSets[4], 0, 1, &rangeUpdateDesc);
   }
 
   nri::Descriptor* bufferRanges[5] = {materialBuffer->bufView, sceneVerticesBuffer->bufView,
@@ -596,14 +619,19 @@ void MTXRenderer::createSBT() {
 }
 
 void MTXRenderer::updateCamera(float deltaTime) {
-  CameraDesc mainCameraDesc;
-  mainCameraDesc.aspectRatio = float(GetWindowResolution().x) / float(GetWindowResolution().y);
-  mainCameraDesc.nearZ = 0.1f;
-  GetCameraDescFromInputDevices(mainCameraDesc);
-  m_cameras.front().Update(mainCameraDesc, m_frameIndex);
+  CameraDesc MainCameraDesc;
+  MainCameraDesc.nearZ = 0.1f;
+  MainCameraDesc.aspectRatio = float(GetWindowResolution().x) / float(GetWindowResolution().y);
+  GetCameraDescFromInputDevices(MainCameraDesc);
+  // m_cameras.front().Update(mainCameraDesc, m_frameIndex);
+  m_cameras.front().updateState(MainCameraDesc, m_frameIndex, m_Timer.GetFrameTime());
   CameraUniform uniform;
-  uniform.viewToWorld = m_cameras.front().state.mViewToWorld;
-  uniform.clipToView = m_cameras.front().state.mClipToView;
+  uniform.ViewToWorld = m_cameras.front().state.mViewToWorld;
+  uniform.ViewToClip = m_cameras.front().state.mViewToClip;
+  uniform.ClipToView = m_cameras.front().state.mClipToView;
+  uniform.ClipToWorld = m_cameras.front().state.mClipToWorld;
+  uniform.WorldToClip = m_cameras.front().state.mWorldToClip;
+  uniform.WorldToView = m_cameras.front().state.mWorldToView;
   uniform.camPosFov.x = m_cameras.front().state.position.x;
   uniform.camPosFov.y = m_cameras.front().state.position.y;
   uniform.camPosFov.z = m_cameras.front().state.position.z;
@@ -683,8 +711,13 @@ void MTXRenderer::RenderFrame(uint32_t frameIndex) {
     desc.x = (uint16_t) GetWindowResolution().x;
     desc.y = (uint16_t) GetWindowResolution().y;
     desc.z = 1;
+    m_constant.accumFrameCount = m_cameras.front().isDirty ? 0 : m_constant.accumFrameCount;
+    m_constant.maxBounce = m_maxBounce;
     m_interface.CmdSetConstants(cmdBuf, 0, &m_constant, sizeof(MtxRayTracingPushConstant));
-    m_interface.CmdDispatchRays(cmdBuf, desc);
+    if (m_constant.accumFrameCount < m_constant.maxSampleCount) {
+      m_interface.CmdDispatchRays(cmdBuf, desc);
+      m_constant.accumFrameCount++;
+    }
 
     textureTransitions[1].before = textureTransitions[1].after;
     textureTransitions[1].after = {nri::AccessBits::COPY_SOURCE, nri::Layout::COPY_SOURCE};

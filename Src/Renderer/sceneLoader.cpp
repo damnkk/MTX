@@ -243,4 +243,21 @@ std::shared_ptr<SceneGraph> SceneLoader::loadScene(std::string path) {
   return m_sceneGraph;
 }
 
+void SceneLoader::addEnvTexture(std::string path) {
+  if (path.empty() || !(std::filesystem::exists(path))) {
+    MTX_WARN("Invalid ENV texture, check file path again!!")
+    return;
+  }
+  MtxTextureAllocInfo texAllocInfo{};
+  ::utils::Texture    utilTex;
+  ::utils::LoadTexture(path, utilTex);
+  texAllocInfo._name = utilTex.name;
+  texAllocInfo._desc =
+      nri::Texture2D(utilTex.GetFormat(), utilTex.GetWidth(), utilTex.GetHeight(),
+                     utilTex.GetMipNum(), 1, nri::TextureUsageBits::SHADER_RESOURCE);
+  texAllocInfo._sourceData = &utilTex;
+  auto envTex = m_interface->allocateTexture(texAllocInfo);
+  m_envTextures.push_back(envTex);
+}
+
 }// namespace MTX

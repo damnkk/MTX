@@ -80,6 +80,7 @@ class SceneLoader {
   SceneLoader(MTX::MTXInterface* interface) : m_interface(interface) {}
   void                        destroy();
   std::shared_ptr<SceneGraph> loadScene(std::string path);
+  void                        addEnvTexture(std::string path);
   Material convertAIMaterialToDescription(const aiMaterial* material, std::string basePath);
 
   Mesh convertAIMesh(aiMesh* mesh);
@@ -88,6 +89,7 @@ class SceneLoader {
 
  public:
   std::vector<std::shared_ptr<MtxTexture>>& getSceneTextures() { return m_sceneTextures; }
+  std::vector<std::shared_ptr<MtxTexture>>& getEnvTextures() { return m_envTextures; }
   std::shared_ptr<SceneGraph>               getSceneGraph() { return m_sceneGraph; }
   std::vector<Vertex>&                      getVertices() { return m_sceneVertices; }
   std::vector<uint32_t>&                    getIndices() { return m_sceneIndices; }
@@ -107,6 +109,7 @@ class SceneLoader {
   std::vector<Material>                    m_materials;
   int                                      m_materialOffset = 0;
   std::vector<std::shared_ptr<MtxTexture>> m_sceneTextures;
+  std::vector<std::shared_ptr<MtxTexture>> m_envTextures;
   int                                      m_sceneTextureOffset = 0;
   //geom data
   /*
