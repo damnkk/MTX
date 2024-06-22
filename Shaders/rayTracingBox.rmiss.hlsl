@@ -1,5 +1,5 @@
 #include "NRICompatibility.hlsli"
-#include "RayCommon.hlsli"
+#include "RtUtils.hlsli"
 
 NRI_RESOURCE(Texture2D<float4>, envTextures[], t, 0, 3);
 NRI_RESOURCE(SamplerState, Sampler, s, 4, 1);

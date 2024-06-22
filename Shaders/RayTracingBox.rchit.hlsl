@@ -1,18 +1,7 @@
 #include "NRICompatibility.hlsli"
-#include "RayCommon.hlsli"
+#include "RtUtils.hlsli"
 
-NRI_RESOURCE(StructuredBuffer<MatUniform>, matUniformBuffer, t, 0, 1);
-NRI_RESOURCE(StructuredBuffer<Vertex>, vertexBuffer, t, 1, 1);
-NRI_RESOURCE(StructuredBuffer<uint>, indexBuffer, t, 2, 1);
-NRI_RESOURCE(StructuredBuffer<InstanceInfo>, instanceInfoBuffer, t, 3, 1);
-NRI_RESOURCE(Texture2D<float4>, sceneTextures[], t, 0, 2);
-NRI_RESOURCE(StructuredBuffer<uint>, primitiveIndexBuffers[], t, 0, 4);
-NRI_RESOURCE(SamplerState, Sampler, s, 4, 1);
-NRI_RESOURCE(StructuredBuffer<CameraUniform>, cameraUniform, t, 2, 0);
-NRI_PUSH_CONSTANTS(PushConstant, RTConstant, 0);
-struct IntersectionAttributes {
-  float2 barycentrics;
-};
+#include "layout.hlsli"
 
 [shader("closesthit")] void closest_hit(inout RayRayloadType payload
                                         : SV_RayPayload,
@@ -24,11 +13,6 @@ struct IntersectionAttributes {
   uint primitiveIndex = PrimitiveIndex();
   // 根据实例索引得到该实例的几何索引信息
   InstanceInfo instaInfo = instanceInfoBuffer[instanceID];
-  // 对应的那个实例的primitiveMaterialBuffer，之后根据primitiveID拿到材质索引
-  uint materialIdx =
-      primitiveIndexBuffers[instaInfo.primitiveInfoIdx][primitiveIndex];
-  // 拿到材质
-  MatUniform mat = matUniformBuffer[materialIdx];
 
   uint u0 = indexBuffer[instaInfo.indexOffset + 3 * primitiveIndex + 0];
   uint u1 = indexBuffer[instaInfo.indexOffset + 3 * primitiveIndex + 1];
@@ -37,6 +21,12 @@ struct IntersectionAttributes {
   Vertex v0 = vertexBuffer[instaInfo.vertexOffset + u0];
   Vertex v1 = vertexBuffer[instaInfo.vertexOffset + u1];
   Vertex v2 = vertexBuffer[instaInfo.vertexOffset + u2];
+
+  // 对应的那个实例的primitiveMaterialBuffer，之后根据primitiveID拿到材质索引
+  uint materialIdx =
+      primitiveIndexBuffers[instaInfo.primitiveInfoIdx][primitiveIndex];
+  // 拿到材质
+  MatUniform mat = matUniformBuffer[materialIdx];
 
   Texture2D baseColorTexture = sceneTextures[mat.textureIndices[0]];
   Texture2D mrTexture = sceneTextures[mat.textureIndices[1]];
@@ -81,21 +71,8 @@ struct IntersectionAttributes {
   float3 random = random_pcg3d(
       uint3(DispatchRaysIndex().xy, RTConstant.curFrameCount + payload.level));
 
-  // temp value
-  float fresnelReflect = .5f;
-  float transmission = 0.0f;
-  float ior = 1.3f;
-  float3 nextFactor = float3(0.0f, 0.0f, 0.0f);
-  float3 nextDir = sampleMicrofacetBRDF(
-      payload.nextRayDirection, normal, baseColor, 1.0, fresnelReflect,
-      metallicRoughness.y, transmission, ior, random, nextFactor);
-  payload.nextRayOrigin = vertPosition;
-  payload.nextRayDirection = nextDir;
-  payload.nextFactor = max(nextFactor, 0.0);
   if (mat.textureIndices[4] > -1) {
     Texture2D emissiveTexture = sceneTextures[mat.textureIndices[4]];
     payload.directLight = emissiveTexture.SampleLevel(Sampler, uvCoord, 0.0);
   }
-  // payload.directLight = float4(metallicRoughness.x, metallicRoughness.y,
-  //                              metallicRoughness.z, 1.0f);
 }
