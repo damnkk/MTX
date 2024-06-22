@@ -69,7 +69,4 @@ NRI_PUSH_CONSTANTS(PushConstant, RTConstant, 0);
     // newAverage = pow(newAverage, float3(1.0 / 2.2, 1.0 / 2.2, 1.0 / 2.2));
     outputImage[dispatchRaysIndex] = float4(newAverage, 1.0f);
   }
-
-  // outputImage[dispatchRaysIndex] =
-  //     float4(RTConstant.curFrameCount, 0.0, 0.0, 1.0f);
 }

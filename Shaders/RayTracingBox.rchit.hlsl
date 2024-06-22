@@ -54,17 +54,25 @@ struct IntersectionAttributes {
   float3 vertPosition = v0.position * baryCentrics.x +
                         v1.position * baryCentrics.y +
                         v2.position * baryCentrics.z;
+  vertPosition = mul((float3x3)ObjectToWorld3x4(), vertPosition).xyz;
   float3 vertNormal = v0.normal * baryCentrics.x + v1.normal * baryCentrics.y +
                       v2.normal * baryCentrics.z;
 
   float3 baseColor = baseColorTexture.SampleLevel(Sampler, uvCoord, 0.0).xyz;
+
   float3 normal = vertNormal;
   if (mat.textureIndices[3] > -1) {
     Texture2D normalTexture = sceneTextures[mat.textureIndices[3]];
     float3 tagNormal = normalTexture.SampleLevel(Sampler, uvCoord, 0.0).xyz;
     normal = normalMap(vertNormal, tagNormal);
   }
-  normal = mul(normal, (float3x3)ObjectToWorld3x4()).xyz;
+  normal = mul((float3x3)ObjectToWorld3x4(), normal).xyz;
+
+  float3 metallicRoughness = float3(0.0, 0.0, 0.0);
+  if (mat.textureIndices[1] > -1) {
+    Texture2D mrTexture = sceneTextures[mat.textureIndices[1]];
+    metallicRoughness = mrTexture.SampleLevel(Sampler, uvCoord, 0.0).xyz;
+  }
 
   float3 mr = mrTexture.SampleLevel(Sampler, uvCoord, 0.0).xyz;
   float3 emissive = emissiveTexture.SampleLevel(Sampler, uvCoord, 0.0).xyz;
@@ -73,7 +81,21 @@ struct IntersectionAttributes {
   float3 random = random_pcg3d(
       uint3(DispatchRaysIndex().xy, RTConstant.curFrameCount + payload.level));
 
+  // temp value
+  float fresnelReflect = .5f;
+  float transmission = 0.0f;
+  float ior = 1.3f;
   float3 nextFactor = float3(0.0f, 0.0f, 0.0f);
-
-  payload.directLight = float4(random, 1.0);
+  float3 nextDir = sampleMicrofacetBRDF(
+      payload.nextRayDirection, normal, baseColor, 1.0, fresnelReflect,
+      metallicRoughness.y, transmission, ior, random, nextFactor);
+  payload.nextRayOrigin = vertPosition;
+  payload.nextRayDirection = nextDir;
+  payload.nextFactor = max(nextFactor, 0.0);
+  if (mat.textureIndices[4] > -1) {
+    Texture2D emissiveTexture = sceneTextures[mat.textureIndices[4]];
+    payload.directLight = emissiveTexture.SampleLevel(Sampler, uvCoord, 0.0);
+  }
+  // payload.directLight = float4(metallicRoughness.x, metallicRoughness.y,
+  //                              metallicRoughness.z, 1.0f);
 }

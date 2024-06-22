@@ -10,9 +10,7 @@ NRI_RESOURCE(StructuredBuffer<CameraUniform>, cameraUniform, t, 2, 0);
   float2 uv = directionToSphericalEnvmap(payload.nextRayDirection);
   Texture2D env = envTextures[0];
 
-  if (payload.level == 0) {
-    payload.directLight = env.SampleLevel(Sampler, uv, 0.0);
-  } else {
-    payload.directLight = float4(uv, 0.0f, 1.0f);
-  }
+  payload.directLight = env.SampleLevel(Sampler, uv, 0.0);
+  payload.nextRayOrigin = float3(0.0, 0.0, 0.0);
+  payload.nextRayDirection = float3(0.0, 0.0, 0.0);
 }
