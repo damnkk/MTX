@@ -211,8 +211,8 @@ std::shared_ptr<SceneGraph> SceneLoader::loadScene(std::string path) {
   const std::string basePath =
       (pathSeparator != std::string::npos) ? path.substr(0, pathSeparator + 1) : "";
   if (basePath.empty()) MTX_WARN("Model base path is null, this may lead to potential mistake");
-  const unsigned int loadFlags =
-      0 | aiProcess_GenNormals | aiProcess_GenBoundingBoxes | aiProcess_FindInvalidData;
+  const unsigned int loadFlags = 0 | aiProcess_GenNormals | aiProcess_GenBoundingBoxes
+      | aiProcess_CalcTangentSpace | aiProcess_FindInvalidData;
   MTX_INFO("Loading model from path {}", path);
   const aiScene* scene = m_modelImporter.ReadFile(path.c_str(), loadFlags);
   if (!scene || !scene->HasMeshes()) {

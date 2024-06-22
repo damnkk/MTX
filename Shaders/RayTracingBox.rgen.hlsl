@@ -1,5 +1,5 @@
 #include "NRICompatibility.hlsli"
-#include "RayCommon.hlsli"
+#include "RtUtils.hlsli"
 
 NRI_RESOURCE(RWTexture2D<float4>, outputImage, u, 0, 0);
 NRI_RESOURCE(RaytracingAccelerationStructure, topLevelAS, t, 1, 0);
@@ -8,8 +8,9 @@ NRI_PUSH_CONSTANTS(PushConstant, RTConstant, 0);
 
 [shader("raygeneration")] void raygen() {
   // declar
-  float2 pixelOffset = hammersley(uint(RTConstant.curFrameCount),
-                                  uint(RTConstant.maxSampleCount));
+  uint seed = initRandom(DispatchRaysDimensions().xy, DispatchRaysIndex().xy,
+                         RTConstant.curFrameCount);
+  float2 pixelOffset = float2(rand(seed), rand(seed));
   CameraUniform camUnifor = cameraUniform[0];
   uint2 dispatchRaysIndex = DispatchRaysIndex().xy;
   uint2 dispatchraysDimensions = DispatchRaysDimensions().xy;
@@ -42,8 +43,9 @@ NRI_PUSH_CONSTANTS(PushConstant, RTConstant, 0);
   payLoad.nextFactor = float3(1.0, 1.0, 1.0);
   payLoad.shadowRayMiss = false;
   payLoad.level = 0;
+  payLoad.seed = seed;
   float3 contribution = float3(1.0f, 1.0f, 1.0f);
-  float3 color = float3(0.0, 0.0, 0.0);
+  float3 radiance = float3(0.0, 0.0, 0.0);
 
   while (length(payLoad.nextRayDirection) > 0.1 &&
          payLoad.level < RTConstant.maxBounce && length(contribution) > 0.001) {
@@ -53,23 +55,20 @@ NRI_PUSH_CONSTANTS(PushConstant, RTConstant, 0);
              rayContributionToHitGroupIndex,
              multiplierForGeometryContributionToHitGroupIndex, missShaderIndex,
              rayDesc, payLoad);
-    color += contribution * payLoad.directLight.xyz;
+    radiance += contribution * payLoad.directLight.xyz;
     contribution *= payLoad.nextFactor;
     payLoad.level = payLoad.level + 1;
   }
   if (RTConstant.curFrameCount == 0) {
-    outputImage[dispatchRaysIndex] = float4(color, 1.0f);
+    outputImage[dispatchRaysIndex] = float4(radiance, 1.0f);
   } else {
     float3 previousAverage = outputImage[dispatchRaysIndex].rgb;
     // previousAverage = pow(previousAverage, float3(2.2, 2.2, 2.2));
     float3 newAverage =
-        (previousAverage.rgb * float(RTConstant.curFrameCount) + color) /
+        (previousAverage.rgb * float(RTConstant.curFrameCount) + radiance) /
         float(RTConstant.curFrameCount + 1);
 
     // newAverage = pow(newAverage, float3(1.0 / 2.2, 1.0 / 2.2, 1.0 / 2.2));
     outputImage[dispatchRaysIndex] = float4(newAverage, 1.0f);
   }
-
-  // outputImage[dispatchRaysIndex] =
-  //     float4(RTConstant.curFrameCount, 0.0, 0.0, 1.0f);
 }

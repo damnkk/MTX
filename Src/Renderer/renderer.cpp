@@ -81,10 +81,10 @@ bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
   createSwapChain(swpFormat);
   m_sceneLoader = std::make_shared<SceneLoader>(&m_interface);
   m_sceneLoader->addEnvTexture("E:/repository/MTX/Asset/hdrTex/symmetrical_garden_02_2k.hdr");
-  m_SceneFile = "./Asset/models/DamagedHelmet/DamagedHelmet.gltf";
-  m_sceneLoader->loadScene(m_SceneFile);
-  // m_SceneFile = "./Asset/models/MetalRoughSpheres/MetalRoughSpheres.gltf";
+  // m_SceneFile = "./Asset/models/DamagedHelmet/DamagedHelmet.gltf";
   // m_sceneLoader->loadScene(m_SceneFile);
+  m_SceneFile = "./Asset/models/MetalRoughSpheres/MetalRoughSpheres.gltf";
+  m_sceneLoader->loadScene(m_SceneFile);
   createRayTracingPipeline();
   createDescriptorSets();
   createRayTracingTex(swpFormat);

@@ -63,7 +63,7 @@ class MTXRenderer : public SampleBase {
   uint64_t m_missShaderOffset = 0;
   uint64_t m_hitShaderGroupOffset = 0;
   uint32_t m_threadNum = 12;
-  uint32_t m_maxBounce = 1;
+  uint32_t m_maxBounce = 2;
 };
 }// namespace MTX
 
