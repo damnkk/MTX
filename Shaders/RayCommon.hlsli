@@ -19,8 +19,14 @@ struct RayRayloadType {
   float3 nextRayOrigin;
   float3 nextRayDirection;
   float3 nextFactor;
+  float3 absorption;
   bool shadowRayMiss;
   int level;
+  uint seed;
+};
+
+struct envPayload {
+  bool isHit;
 };
 
 struct CameraUniform {
@@ -68,8 +74,8 @@ struct DesnityMaterial {
   float subsurface;
   float specularTint;
   float sheen;
-  float clearCoat;
-  float clearCoatRoughness;
+  float clearcoat;
+  float clearcoatRoughness;
   float transmission;
   float ior;
 

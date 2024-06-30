@@ -42,6 +42,8 @@ NRI_PUSH_CONSTANTS(PushConstant, RTConstant, 0);
   payLoad.nextFactor = float3(1.0, 1.0, 1.0);
   payLoad.shadowRayMiss = false;
   payLoad.level = 0;
+  payLoad.seed = initRandom(DispatchRaysDimensions().xy, DispatchRaysIndex().xy,
+                            RTConstant.curFrameCount);
   float3 contribution = float3(1.0f, 1.0f, 1.0f);
   float3 radiance = float3(0.0, 0.0, 0.0);
 
