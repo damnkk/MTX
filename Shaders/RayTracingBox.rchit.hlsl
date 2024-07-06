@@ -96,6 +96,7 @@ VisibilityContribution DirectLight(in Ray r, in State state) {
   }
 
   float3 normal = normalize(vertNormal);
+  // 这里还有一点问题
   if (mat.textureIndices[3] > -1) {
     Texture2D normalTexture = sceneTextures[mat.textureIndices[3]];
     float3 tagNormal = normalTexture.SampleLevel(Sampler, uvCoord, 0.0).xyz;
@@ -132,10 +133,12 @@ VisibilityContribution DirectLight(in Ray r, in State state) {
   state.mat.albedo = baseColor;
   state.mat.emission = emissive;
   state.mat.roughness = max(metallicRoughness.y, 0.001);
+  // state.mat.roughness = 0.001;
   state.mat.metallic = max(metallicRoughness.z, 0.001);
+  // state.mat.metallic = 0.00001;
   state.mat.transmission = mat.intensity.z;
   state.mat.transmission = 0.0;
-  state.mat.ior = 1.83;
+  state.mat.ior = 1.33;
   state.eta = dot(state.normal, state.ffnormal) > 0.0 ? (1.0 / state.mat.ior)
                                                       : state.mat.ior;
   state.mat.anistropy = 0.0;
@@ -161,14 +164,18 @@ VisibilityContribution DirectLight(in Ray r, in State state) {
                    bsdfSampleRec.L, bsdfSampleRec.pdf, payload.seed);
 
   if (bsdfSampleRec.pdf > 0.0) {
-    payload.nextFactor *= bsdfSampleRec.f *
-                          abs(dot(state.ffnormal, bsdfSampleRec.L)) /
-                          bsdfSampleRec.pdf;
+    payload.nextFactor = bsdfSampleRec.f *
+                         abs(dot(state.ffnormal, bsdfSampleRec.L)) /
+                         bsdfSampleRec.pdf;
   } else {
     payload.level = 100;
     return;
   }
 
-  // payload.directLight = float4(bsdfSampleRec.L, 1.0f);
   payload.nextRayDirection = bsdfSampleRec.L;
+  payload.nextRayOrigin = OffsetRay(
+      vertPosition, dot(bsdfSampleRec.L, state.ffnormal) > 0 ? state.ffnormal
+                                                             : -state.ffnormal);
+  // payload.directLight = float4(state.ffnormal, 1.0f);
+  // payload.level = 100;
 }

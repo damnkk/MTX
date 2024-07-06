@@ -8,6 +8,20 @@ float radicalInverse(uint bits) {
   return float(bits) * 2.3283064365386963e-10; // / 0x100000000
 }
 
+float3 OffsetRay(in float3 p, in float3 n) {
+  const float intScale = 256.0f;
+  const float floatScale = 1.0f / 65536.0f;
+  const float origin = 1.0f / 32.0f;
+  int3 of_i = int3(intScale * n.x, intScale * n.y, intScale * n.z);
+  float3 p_i = float3(asfloat(asint(p.x) + ((p.x < 0) ? -of_i.x : of_i.x)),
+                      asfloat(asint(p.y) + ((p.y < 0) ? -of_i.y : of_i.y)),
+                      asfloat(asint(p.z) + ((p.z < 0) ? -of_i.z : of_i.z)));
+  // return p_i;
+  return float3(abs(p.x) < origin ? p.x + floatScale * n.x : p_i.x,
+                abs(p.y) < origin ? p.y + floatScale * n.y : p_i.y,
+                abs(p.z) < origin ? p.z + floatScale * n.z : p_i.z);
+}
+
 void CreateCoordinateSystem(in float3 N, out float3 Nt, out float3 Nb) {
   // http://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Vectors.html#CoordinateSystemfromaVector
   Nt = normalize(((abs(N.z) > 0.99999f)

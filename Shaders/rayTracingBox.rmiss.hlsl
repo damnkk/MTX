@@ -11,6 +11,7 @@ NRI_RESOURCE(StructuredBuffer<CameraUniform>, cameraUniform, t, 2, 0);
   Texture2D env = envTextures[0];
 
   payload.directLight = env.SampleLevel(Sampler, uv, 0.0);
+  payload.directLight.xyz *= 2.0f;
   payload.nextRayOrigin = float3(0.0, 0.0, 0.0);
   payload.nextRayDirection = float3(0.0, 0.0, 0.0);
   payload.level = 1000;

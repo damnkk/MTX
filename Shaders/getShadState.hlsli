@@ -10,5 +10,3 @@ struct ShadeState {
   float3 color;
   uint matIndex;
 };
-
-ShadeState GetShaderState(out ShadeState sdState) {}
