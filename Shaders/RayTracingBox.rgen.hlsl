@@ -47,8 +47,7 @@ NRI_PUSH_CONSTANTS(PushConstant, RTConstant, 0);
   float3 contribution = float3(1.0f, 1.0f, 1.0f);
   float3 radiance = float3(0.0, 0.0, 0.0);
 
-  while (length(payLoad.nextRayDirection) > 0.1 &&
-         payLoad.level < RTConstant.maxBounce && length(contribution) > 0.001) {
+  while (payLoad.level < RTConstant.maxBounce) {
     rayDesc.Origin = payLoad.nextRayOrigin;
     rayDesc.Direction = payLoad.nextRayDirection;
     TraceRay(topLevelAS, rayFlags, instanceInclusionMask,

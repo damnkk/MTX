@@ -13,4 +13,5 @@ NRI_RESOURCE(StructuredBuffer<CameraUniform>, cameraUniform, t, 2, 0);
   payload.directLight = env.SampleLevel(Sampler, uv, 0.0);
   payload.nextRayOrigin = float3(0.0, 0.0, 0.0);
   payload.nextRayDirection = float3(0.0, 0.0, 0.0);
+  payload.level = 1000;
 }

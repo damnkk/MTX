@@ -8,6 +8,14 @@ float radicalInverse(uint bits) {
   return float(bits) * 2.3283064365386963e-10; // / 0x100000000
 }
 
+void CreateCoordinateSystem(in float3 N, out float3 Nt, out float3 Nb) {
+  // http://www.pbr-book.org/3ed-2018/Geometry_and_Transformations/Vectors.html#CoordinateSystemfromaVector
+  Nt = normalize(((abs(N.z) > 0.99999f)
+                      ? float3(-N.x * N.y, 1.0f - N.y * N.y, -N.y * N.z)
+                      : float3(-N.x * N.z, -N.y * N.z, 1.0f - N.z * N.z)));
+  Nb = normalize(cross(Nt, N));
+}
+
 float2 hammersley(uint n, uint N) {
   return float2((float(n) + 0.5) / float(N), radicalInverse(n + 1u));
 }

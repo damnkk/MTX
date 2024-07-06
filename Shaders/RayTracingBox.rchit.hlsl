@@ -95,7 +95,7 @@ VisibilityContribution DirectLight(in Ray r, in State state) {
     ao = aoTexture.SampleLevel(Sampler, uvCoord, 0.0).x;
   }
 
-  float3 normal = vertNormal;
+  float3 normal = normalize(vertNormal);
   if (mat.textureIndices[3] > -1) {
     Texture2D normalTexture = sceneTextures[mat.textureIndices[3]];
     float3 tagNormal = normalTexture.SampleLevel(Sampler, uvCoord, 0.0).xyz;
@@ -109,10 +109,7 @@ VisibilityContribution DirectLight(in Ray r, in State state) {
   }
 
   //--------------------------------------------------------------------------
-  float3 tempVec = float3(1.0, 0.0, 0.0);
-  if (dot(tempVec, normal) < 0.0001)
-    tempVec = float3(0.0, 1.0, 0.0);
-  float3 tangent = normalize(cross(tempVec, normal));
+
   float3 bitTangent = normalize(cross(vertTagent, normal));
   State state;
   state.position = vertPosition;
@@ -125,6 +122,7 @@ VisibilityContribution DirectLight(in Ray r, in State state) {
   state.ffnormal = dot(state.normal, payload.nextRayDirection) <= 0.0
                        ? state.normal
                        : -state.normal;
+  CreateCoordinateSystem(state.ffnormal, state.tangent, state.bitangent);
   state.mat.specular = 1.0;
   state.mat.subsurface = 0.0;
   state.mat.specularTint = 1.0;
@@ -137,7 +135,7 @@ VisibilityContribution DirectLight(in Ray r, in State state) {
   state.mat.metallic = max(metallicRoughness.z, 0.001);
   state.mat.transmission = mat.intensity.z;
   state.mat.transmission = 0.0;
-  state.mat.ior = 1.33;
+  state.mat.ior = 1.83;
   state.eta = dot(state.normal, state.ffnormal) > 0.0 ? (1.0 / state.mat.ior)
                                                       : state.mat.ior;
   state.mat.anistropy = 0.0;
