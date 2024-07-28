@@ -7,3 +7,6 @@ NRI_RESOURCE(StructuredBuffer<uint>, primitiveIndexBuffers[], t, 0, 4);
 NRI_RESOURCE(SamplerState, Sampler, s, 4, 1);
 NRI_RESOURCE(StructuredBuffer<CameraUniform>, cameraUniform, t, 2, 0);
 NRI_PUSH_CONSTANTS(PushConstant, RTConstant, 0);
+NRI_RESOURCE(RWTexture2D<float4>, outputImage, u, 0, 0);
+NRI_RESOURCE(RaytracingAccelerationStructure, topLevelAS, t, 1, 0);
+NRI_RESOURCE(Texture2D<float4>, envTextures[], t, 0, 3);

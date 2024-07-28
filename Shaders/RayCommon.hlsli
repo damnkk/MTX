@@ -14,15 +14,15 @@ struct Ray {
   float3 origin;
   float3 direction;
 };
-struct RayRayloadType {
-  float4 directLight;
-  float3 nextRayOrigin;
-  float3 nextRayDirection;
-  float3 nextFactor;
-  float3 absorption;
-  bool shadowRayMiss;
-  int level;
+struct RayPayloadType {
   uint seed;
+  float hitT;
+  int primitiveID;
+  int instanceID;
+  int instanceCustomIndex;
+  float2 baryCoord;
+  float3x3 objectToWorld;
+  float3x3 worldToObject;
 };
 
 struct envPayload {

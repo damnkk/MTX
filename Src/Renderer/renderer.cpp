@@ -87,7 +87,9 @@ bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
   m_sceneLoader->loadScene(m_SceneFile);
   createRayTracingPipeline();
   createDescriptorSets();
-  createRayTracingTex(swpFormat);
+  // nri::Format rayTracingTexFormat = nri::Format::RGBA32_SFLOAT;
+  nri::Format rayTracingTexFormat = nri::Format::RGBA8_UNORM;
+  createRayTracingTex(rayTracingTexFormat);
   createBLAS();
   createTLAS();
   createSBT();
@@ -177,24 +179,24 @@ void MTXRenderer::createRayTracingPipeline() {
       //set1 ---> material uniform/ vertices/ indices/ instance info/textureSampler
       {0, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::RAY_TRACING_SHADERS, false,
           false},
-      {1, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER, false,
+      {1, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::RAY_TRACING_SHADERS, false,
           false},
-      {2, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER, false,
+      {2, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::RAY_TRACING_SHADERS, false,
           false},
-      {3, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER, false,
+      {3, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::RAY_TRACING_SHADERS, false,
           false},
       {4, 1, nri::DescriptorType::SAMPLER, nri::StageBits::RAY_TRACING_SHADERS, false, false},
       //set2 ---> scene textures
       {0, static_cast<uint32_t>(m_sceneLoader->getSceneTextures().size()),
-          nri::DescriptorType::TEXTURE, nri::StageBits::CLOSEST_HIT_SHADER,
+          nri::DescriptorType::TEXTURE, nri::StageBits::RAY_TRACING_SHADERS,
           nri::VARIABLE_DESCRIPTOR_NUM, nri::DESCRIPTOR_ARRAY},
       //set3 ---> env textures
       {0, static_cast<uint32_t>(m_sceneLoader->getEnvTextures().size()),
-          nri::DescriptorType::TEXTURE, nri::StageBits::MISS_SHADER, nri::VARIABLE_DESCRIPTOR_NUM,
-          nri::DESCRIPTOR_ARRAY},
+          nri::DescriptorType::TEXTURE, nri::StageBits::RAY_TRACING_SHADERS, 
+          nri::VARIABLE_DESCRIPTOR_NUM,nri::DESCRIPTOR_ARRAY},
       //set4 ---> primitives info
       {0, static_cast<uint32_t>(m_sceneLoader->getMeshes().size()),
-          nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER,
+          nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::RAY_TRACING_SHADERS,
           nri::VARIABLE_DESCRIPTOR_NUM, nri::DESCRIPTOR_ARRAY},
   };
 
@@ -717,6 +719,7 @@ void MTXRenderer::RenderFrame(uint32_t frameIndex) {
     if (m_constant.accumFrameCount < m_constant.maxSampleCount) {
       m_interface.CmdDispatchRays(cmdBuf, desc);
       m_constant.accumFrameCount++;
+      MTX_INFO(m_constant.accumFrameCount)
     }
 
     textureTransitions[1].before = textureTransitions[1].after;

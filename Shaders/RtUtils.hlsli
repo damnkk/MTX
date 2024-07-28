@@ -8,6 +8,12 @@ float radicalInverse(uint bits) {
   return float(bits) * 2.3283064365386963e-10; // / 0x100000000
 }
 
+float4 SRGBtoLINEAR(float4 srgbIn)
+{
+  float3 linOut = pow(srgbIn.xyz, float3(2.2,2.2,2.2));
+  return float4(linOut, srgbIn.w);
+}
+
 float3 OffsetRay(in float3 p, in float3 n) {
   const float intScale = 256.0f;
   const float floatScale = 1.0f / 65536.0f;
@@ -34,8 +40,8 @@ float2 hammersley(uint n, uint N) {
   return float2((float(n) + 0.5) / float(N), radicalInverse(n + 1u));
 }
 
-float3 normalMap(float3 vertexNormal, float3 tagNormal) {
-  float3 tagent = normalize(cross(vertexNormal, float3(1.0f, 0.0f, 0.0f)));
+float3 normalMap(float3 vertexNormal, float3 tagNormal,float3 tagent) {
+  // float3 tagent = normalize(cross(vertexNormal, float3(1.0f, 0.0f, 0.0f)));
   float3 bitTagent = normalize(cross(vertexNormal, tagent));
   return normalize(tagent * tagNormal.x + bitTagent * tagNormal.y +
                    vertexNormal * tagNormal.z);
@@ -117,6 +123,14 @@ uint3 pcg3d(uint3 v) {
 //-----------------------------------------------------------------------
 // Generate a random float in [0, 1) given the previous RNG state
 //-----------------------------------------------------------------------
+
+uint lcg(inout uint prev)
+{
+  uint LCG_A = 1664525u;
+  uint LCG_C = 1013904223u;
+  prev       = (LCG_A * prev + LCG_C);
+  return prev & 0x00FFFFFF;
+}
 float rand(inout uint seed) {
   uint r = pcg(seed);
   return asfloat(0x3f800000 | (r >> 9)) - 1.0f;
@@ -367,7 +381,7 @@ float3 DisneySample(in State state, in float3 V, in float3 N, inout float3 L,
 
   float diffuseRatio = 0.5 * (1.0 - state.mat.metallic);
   float transWeight = (1.0 - state.mat.metallic) * state.mat.transmission;
-  // transWeight = 1.0f;
+  transWeight = 1.0f;
   float3 Cdlin = state.mat.albedo;
   float Cdlum = 0.3 * Cdlin.x + 0.6 * Cdlin.y + 0.1 * Cdlin.z;
 
@@ -445,4 +459,37 @@ float3 DisneySample(in State state, in float3 V, in float3 N, inout float3 L,
     pdf *= (1.0 - transWeight);
   }
   return f;
+}
+
+// float3 DisneySample(in State state, in float3 V, in float3 N, inout float3 L,
+//                     inout float pdf, inout uint seed,float r1,float r2) {
+
+//   float3 tangent,bitangent;
+//   CreateCoordinateSystem(N,tangent,bitangent);
+ 
+//   float sq = sqrt(r1);
+//   float3 direction = float3(cos(2*M_PI*r2)* sq, sin(2 * M_PI * r2) * sq, sqrt(1. - r1));
+//   direction = direction.x*tangent+direction.y*bitangent+direction.z*N;
+//   L = direction;
+//   float cos_theta = dot(L,N);
+//   pdf = cos_theta/M_PI;
+//   float3 BRDF = state.mat.albedo/M_PI;
+//   return BRDF;
+// }
+
+void ClosestHit(float3 rayOrigin,float3 rayDirection,inout RayPayloadType prd,inout RaytracingAccelerationStructure topLevelAS){
+  RayDesc rayDesc;
+  rayDesc.Origin = rayOrigin;
+  rayDesc.Direction = rayDirection;
+  rayDesc.TMin = 0.0001;
+  rayDesc.TMax = INFINITY;
+  uint rayFlags = RAY_FLAG_FORCE_OPAQUE;
+  uint instanceInclusionMask = 0xff;
+  uint rayContributionToHitGroupIndex = 0;
+  uint multiplierForGeometryContributionToHitGroupIndex = 1;
+  uint missShaderIndex = 0;
+  TraceRay(topLevelAS, rayFlags, instanceInclusionMask,
+             rayContributionToHitGroupIndex,
+             multiplierForGeometryContributionToHitGroupIndex, missShaderIndex,
+             rayDesc, prd);
 }

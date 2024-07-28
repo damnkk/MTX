@@ -54,7 +54,7 @@ class MTXRenderer : public SampleBase {
   std::vector<MtxCamera> m_cameras;
   struct MtxRayTracingPushConstant {
     uint32_t accumFrameCount = 0;
-    uint32_t maxSampleCount = 4096;
+    uint32_t maxSampleCount = INT_MAX;
     uint32_t maxBounce = 8;
   } m_constant;
   uint32_t m_currentFrame = 0;
