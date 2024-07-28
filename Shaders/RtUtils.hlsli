@@ -367,7 +367,7 @@ float3 DisneySample(in State state, in float3 V, in float3 N, inout float3 L,
 
   float diffuseRatio = 0.5 * (1.0 - state.mat.metallic);
   float transWeight = (1.0 - state.mat.metallic) * state.mat.transmission;
-  // transWeight = 1.0f;
+  transWeight = 1.0f;
   float3 Cdlin = state.mat.albedo;
   float Cdlum = 0.3 * Cdlin.x + 0.6 * Cdlin.y + 0.1 * Cdlin.z;
 
@@ -385,12 +385,12 @@ float3 DisneySample(in State state, in float3 V, in float3 N, inout float3 L,
 
     float3 R = reflect(-V, H);
     float F = DielectricFresnel(abs(dot(R, H)), state.eta);
-    if (state.mat.tinwalled) {
-      if (dot(state.ffnormal, state.normal) < 0.0) {
-        F = 0.0;
-      }
-      state.eta = 1.001;
-    }
+    // if (state.mat.tinwalled) {
+    //   if (dot(state.ffnormal, state.normal) < 0.0) {
+    //     F = 0.0;
+    //   }
+    //   state.eta = 1.001;
+    // }
     // Reflection/Total internal reflection
     if (rand(seed) < F) {
       L = normalize(R);

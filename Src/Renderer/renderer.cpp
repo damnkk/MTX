@@ -87,7 +87,7 @@ bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
   m_sceneLoader->loadScene(m_SceneFile);
   createRayTracingPipeline();
   createDescriptorSets();
-  createRayTracingTex(swpFormat);
+  createRayTracingTex(nri::Format::RGBA32_SFLOAT);
   createBLAS();
   createTLAS();
   createSBT();

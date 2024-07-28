@@ -96,7 +96,6 @@ VisibilityContribution DirectLight(in Ray r, in State state) {
   }
 
   float3 normal = normalize(vertNormal);
-  // 这里还有一点问题
   if (mat.textureIndices[3] > -1) {
     Texture2D normalTexture = sceneTextures[mat.textureIndices[3]];
     float3 tagNormal = normalTexture.SampleLevel(Sampler, uvCoord, 0.0).xyz;
