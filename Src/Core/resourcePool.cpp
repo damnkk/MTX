@@ -89,7 +89,7 @@ std::shared_ptr<MtxBuffer> BufferAllocator::allocateBuffer(const MtxBufferAllocI
   // auto res = _gfxInterface->AllocateAndBindMemory(_gfxInterface->getDevice(), resourceGroupDesc,
   //                                                 &(buffer->mem));
   nri::MemoryDesc bufferMemoryDesc = {};
-  _gfxInterface->GetBufferMemoryInfo(buffer->getBuf(), allocInfo._memLocation, bufferMemoryDesc);
+  _gfxInterface->GetBufferMemoryDesc(_gfxInterface->getDevice(),allocInfo._desc,allocInfo._memLocation,bufferMemoryDesc);
   MTX_CHECK(_gfxInterface->AllocateMemory(_gfxInterface->getDevice(), bufferMemoryDesc.type,
                                           bufferMemoryDesc.size, buffer->mem));
   const nri::BufferMemoryBindingDesc bufferMemoryBindingDesc = {buffer->mem, buffer->buf, 0};
@@ -145,7 +145,7 @@ AcceStructureAllocator::allocateAcceStructure(const nri::AccelerationStructureDe
   MTX_CHECK(
       _gfxInterface->CreateAccelerationStructure(_gfxInterface->getDevice(), desc, accePtr->acc));
   nri::MemoryDesc memoryDesc = {};
-  _gfxInterface->GetAccelerationStructureMemoryInfo(*(accePtr->acc), memoryDesc);
+  _gfxInterface->GetAccelerationStructureMemoryDesc(*(accePtr->acc), memoryDesc);
   nri::Memory* asMemory = nullptr;
   _gfxInterface->AllocateMemory(_gfxInterface->getDevice(), memoryDesc.type, memoryDesc.size,
                                 asMemory);

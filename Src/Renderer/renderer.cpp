@@ -80,14 +80,14 @@ bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
   nri::Format swpFormat = nri::Format::RGBA8_SNORM;
   createSwapChain(swpFormat);
   m_sceneLoader = std::make_shared<SceneLoader>(&m_interface);
-  m_sceneLoader->addEnvTexture("E:/repository/MTX/Asset/hdrTex/symmetrical_garden_02_2k.hdr");
+  m_sceneLoader->addEnvTexture("E:/repository/MTX/Asset/hdrTex/small_empty_room_1_2k.hdr");
   // m_SceneFile = "./Asset/models/DamagedHelmet/DamagedHelmet.gltf";
   // m_sceneLoader->loadScene(m_SceneFile);
   m_SceneFile = "./Asset/models/MetalRoughSpheres/MetalRoughSpheres.gltf";
   m_sceneLoader->loadScene(m_SceneFile);
   createRayTracingPipeline();
   createDescriptorSets();
-  createRayTracingTex(nri::Format::RGBA32_SFLOAT);
+  createRayTracingTex(nri::Format::RGBA8_UNORM);
   createBLAS();
   createTLAS();
   createSBT();
@@ -590,7 +590,7 @@ void MTXRenderer::createTLAS() {
 void MTXRenderer::createSBT() {
   const nri::DeviceDesc& deviceDesc = m_interface.GetDeviceDesc(m_interface.getDevice());
   const uint64_t         identifierSize = deviceDesc.rayTracingShaderGroupIdentifierSize;
-  const uint64_t         tableAlignment = deviceDesc.rayTracingShaderTableAligment;
+  const uint64_t         tableAlignment = deviceDesc.rayTracingShaderTableAlignment;
 
   m_shaderGroupIdentifierSize = identifierSize;
   m_missShaderOffset = helper::Align(identifierSize, tableAlignment);
