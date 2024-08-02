@@ -1,9 +1,4 @@
-[submodule "External/NRIFramework"]
-	path = External/NRIFramework
-	url = https://github.com/NVIDIAGameWorks/NRIFramework.git
-[submodule "External/bullet"]
-	path = External/bullet
-	url = https://github.com/bulletphysics/bullet3.git
+
 [submodule "External/stduuid"]
 	path = External/stduuid
 	url = https://github.com/mariusbancila/stduuid.git
@@ -13,3 +8,12 @@
 [submodule "External/googleTest"]
 	path = External/googleTest
 	url = https://github.com/google/googletest.git
+[submodule "External/assimp"]
+	path = External/assimp
+	url = https://github.com/assimp/assimp.git
+[submodule "External/glm"]
+	path = External/glm
+	url = https://github.com/g-truc/glm.git
+[submodule "External/NRIFramework"]
+	path = External/NRIFramework
+	url = https://github.com/NVIDIAGameWorks/NRIFramework.git

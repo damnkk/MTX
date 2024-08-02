@@ -5,7 +5,7 @@
 #define MTX_ERROR(format, ...) spdlog::error(format, ##__VA_ARGS__);
 #define MTX_ASSERT(condition)                                                                      \
   if (!(condition)) {                                                                              \
-    spdlog::error("Assert fail in File::{}->Line::{}", __FILE__, __LINE__);                        \
+    spdlog::error("Assert fail in File::{}->Line::{}", __FILE__, __LINE__);                      \
     exit(-1);                                                                                      \
   }
 

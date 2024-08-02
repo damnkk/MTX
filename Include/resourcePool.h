@@ -1,12 +1,13 @@
-#include "NRIFramework.h"
-#include "interface.h"
-#include "resource.h"
+#ifndef RESOURCEPOOL_H
+#define RESOURCEPOOL_H
 #include <array>
 #include <log.h>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
 #include <vector>
+#include "interface.h"
+#include "resource.h"
 
 namespace MTX {
 using uid = uuids::uuid;
@@ -23,7 +24,11 @@ class ResourcePool {
  public:
   ResourcePool(){};
   ~ResourcePool();
-  std::shared_ptr<T> allocate(uid& uid);
+  void destroy() {
+    for (auto [first, second] : _objects) second->destroy(_interface);
+    _objects.clear();
+  }
+  std::shared_ptr<T> allocate(const uid& uid);
   void               release(const uid& uid);
   std::shared_ptr<T> accessObject(const uid& uid);
   size_t             size() { return _objects.size(); }
@@ -36,14 +41,10 @@ class ResourcePool {
   std::mutex                                  _mutex;
 };
 template<typename T>
-ResourcePool<T>::~ResourcePool() {
-
-  // for (auto [first, second] : _objects) second->destroy(_interface);
-  _objects.clear();
-}
+ResourcePool<T>::~ResourcePool() {}
 
 template<typename T>
-std::shared_ptr<T> ResourcePool<T>::allocate(uid& uid) {
+std::shared_ptr<T> ResourcePool<T>::allocate(const uid& uid) {
   std::unique_lock<std::mutex> lock(_mutex);
   if (_objects.size() >= MTX_MAX_POOL_CAPACITY) {
     MTX_WARN("Resource Pool can not alloc more object, check your code.")
@@ -79,7 +80,8 @@ std::shared_ptr<T> ResourcePool<T>::accessObject(const uid& uid) {
 class BaseAllocator {
  public:
   BaseAllocator() {}
-  virtual ~BaseAllocator() = 0 {};
+  virtual ~BaseAllocator(){};
+  virtual void destroy() = 0;
 
  private:
 };
@@ -90,15 +92,16 @@ class TextureAllocator : public BaseAllocator {
   TextureAllocator();
   TextureAllocator(MTXInterface* interface);
   ~TextureAllocator() override;
+  void destroy() override { _pool.destroy(); }
   void setInterface(MTXInterface* interface) {
     MTX_ASSERT(interface);
     _gfxInterface = interface;
     _pool.setInterFace(interface);
   }
-  std::shared_ptr<MtxTexture> allocateTexture(std::string path);
-  std::shared_ptr<MtxTexture> allocateTexture(MtxTextureDesc& desc, std::string name = "");
-  void                        releaseTexture(std::shared_ptr<MtxTexture> pTexture);
-  void                        releaseTexture(uuids::uuid uuid);
+  std::shared_ptr<MtxTexture> allocateTexture(const MtxTextureAllocInfo& allocInfo);
+  // std::shared_ptr<MtxTexture> allocateTexture(MtxTextureDesc& desc, std::string name = "");
+  void releaseTexture(std::shared_ptr<MtxTexture> pTexture);
+  void releaseTexture(uuids::uuid uuid);
 
  private:
   uuids::uuid_name_generator _uuidCreater;
@@ -111,13 +114,13 @@ class BufferAllocator : public BaseAllocator {
   BufferAllocator();
   BufferAllocator(MTXInterface* interface);
   ~BufferAllocator() override;
+  void destroy() override { _pool.destroy(); }
   void setInterface(MTXInterface* interface) {
     MTX_ASSERT(interface);
     _gfxInterface = interface;
     _pool.setInterFace(interface);
   }
-  std::shared_ptr<MtxBuffer> allocateBuffer(MtxBufferDesc& desc, bool deviceOnly,
-                                            std::string name = "", void* data = nullptr);
+  std::shared_ptr<MtxBuffer> allocateBuffer(const MtxBufferAllocInfo& bufferInfo);
   void                       releaseBuffer(std::shared_ptr<MtxBuffer> pBuffer);
   void                       releaseBuffer(uuids::uuid iuid);
 
@@ -127,4 +130,50 @@ class BufferAllocator : public BaseAllocator {
   MTXInterface*              _gfxInterface;
 };
 
+class AcceStructureAllocator : public BaseAllocator {
+ public:
+  AcceStructureAllocator();
+  AcceStructureAllocator(MTXInterface* interface);
+  ~AcceStructureAllocator() override;
+  void destroy() override { _pool.destroy(); }
+  void setInterface(MTXInterface* interface) {
+    MTX_ASSERT(interface);
+    _gfxInterface = interface;
+    _pool.setInterFace(interface);
+  }
+  std::shared_ptr<MtxAcceStructure>
+       allocateAcceStructure(const nri::AccelerationStructureDesc& desc);
+  void releaseAcceStructure(std::shared_ptr<MtxAcceStructure> pAcces);
+  void releaseAcceStructure(uuids::uuid uid);
+
+ private:
+  uuids::uuid_name_generator     _uuidCreater;
+  ResourcePool<MtxAcceStructure> _pool;
+  MTXInterface*                  _gfxInterface;
+};
+
+class PipelineAllocator : public BaseAllocator {
+ public:
+  PipelineAllocator();
+  PipelineAllocator(MTXInterface* interface);
+  ~PipelineAllocator() override;
+  void destroy() override { _pool.destroy(); }
+  void setInterface(MTXInterface* interface) {
+    MTX_ASSERT(interface);
+    _gfxInterface = interface;
+    _pool.setInterFace(interface);
+  }
+
+  std::shared_ptr<MtxPipeline> allocatePipeline(const MtxPipelineAllocateInfo& allocInfo);
+  void                         releasePipeline(std::shared_ptr<MtxPipeline> pPipeline);
+  void                         releasePipeline(uuids::uuid uid);
+
+ private:
+  uuids::uuid_name_generator _uuidCreater;
+  ResourcePool<MtxPipeline>  _pool;
+  MTXInterface*              _gfxInterface;
+};
+
 }// namespace MTX
+
+#endif//RESOURCEPOOL_H

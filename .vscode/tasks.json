@@ -6,7 +6,8 @@
 			"label": "CMake: 生成",
 			"command": "build",
 			"targets": [
-				"MTX"
+				"MTX",
+				"MTX_Shaders"
 			],
 			"group": "build",
 			"problemMatcher": [],
