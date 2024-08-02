@@ -1,7 +1,6 @@
 #ifndef MTXUTILS_H
 #define MTXUTILS_H
 #include "NRIFramework.h"
-#include <glm/glm.hpp>
 namespace MTX {
 const uint32_t MTX_MAX_FRAME_COUNT = BUFFERED_FRAME_MAX_NUM;
 

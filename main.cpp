@@ -1,6 +1,5 @@
 #include <iostream>
 
-#include "NRIFramework.h"
 #include "renderer.h"
 using namespace MTX;
 

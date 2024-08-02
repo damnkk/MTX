@@ -78,7 +78,7 @@ std::shared_ptr<MtxBuffer> BufferAllocator::allocateBuffer(const MtxBufferAllocI
   std::string tempName = allocInfo._name;
   if (allocInfo._name.empty()) { tempName = "name" + std::to_string(_pool.size()); }
   auto uid = _uuidCreater(std::to_string(UUID_COUNT++).c_str());
-  MTX_ASSERT(!uid.is_nil());
+  MTX_ASSERT((!uid.is_nil()&&allocInfo._desc.size>0));
   std::shared_ptr<MtxBuffer> buffer = _pool.allocate(uid);
   buffer->desc = allocInfo._desc;
   _gfxInterface->CreateBuffer(_gfxInterface->getDevice(), buffer->desc, buffer->buf);

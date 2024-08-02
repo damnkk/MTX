@@ -24,7 +24,7 @@ std::shared_ptr<MtxTexture> MTXInterface::allocateTexture(const MtxTextureAllocI
 }
 
 std::shared_ptr<MtxBuffer> MTXInterface::allocateBuffer(const MtxBufferAllocInfo& allocInfo) {
-  return m_bufferAllocator->allocateBuffer(allocInfo);
+    return m_bufferAllocator->allocateBuffer(allocInfo);
 }
 
 std::shared_ptr<MtxAcceStructure>

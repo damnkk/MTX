@@ -1,7 +1,13 @@
 #ifndef INTERFACE_H
 #define INTERFACE_H
 // clang-format off
-#include "NRIFramework.h"
+// #include "NRIFramework.h"
+#include "NRI.h"
+#include "Extensions/NRIDeviceCreation.h"
+#include "Extensions/NRIHelper.h"
+#include "Extensions/NRIStreamer.h"
+#include "Extensions/NRISwapChain.h"
+
 #include "Extensions/NRIRayTracing.h"
 #include <mutex>
 //#include "resourcePool.h"

@@ -1,9 +1,9 @@
 #ifndef RESOURCE_H
 #define RESOURCE_H
-#include "Interface.h"
-#include "NRIFramework.h"
 #include "glm/glm.hpp"
+#include "Interface.h"
 #include "uuid.h"
+#include "NRIFramework.h"
 
 namespace MTX {
 struct MTXInterface;

@@ -1,8 +1,8 @@
 #ifndef MTXCAMERA_H
 #define MTXCAMERA_H
+#include "resource.h"
 #include "Camera.h"
 #include "mtxUtils.h"
-#include "resource.h"
 
 namespace MTX {
 class MtxCamera : public Camera {

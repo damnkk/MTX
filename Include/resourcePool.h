@@ -1,14 +1,13 @@
 #ifndef RESOURCEPOOL_H
 #define RESOURCEPOOL_H
-#include "NRIFramework.h"
-#include "interface.h"
-#include "resource.h"
 #include <array>
 #include <log.h>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
 #include <vector>
+#include "interface.h"
+#include "resource.h"
 
 namespace MTX {
 using uid = uuids::uuid;
