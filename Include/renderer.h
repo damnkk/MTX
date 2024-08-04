@@ -50,6 +50,7 @@ class MTXRenderer : public SampleBase {
   std::vector<nri::DescriptorSet*>               m_descriptorSets;
   std::vector<nri::DescriptorSet*>               m_postDescriptorSets;
   std::shared_ptr<MtxTexture>                    m_rayTracingTexture;
+  nri::Descriptor*                               m_rayTracingSampleView;
   //the main camera is in sampleBase,cameras down here is prepare for multi-camera rendering
   /*
   warning!!!: the currently used function GetCameraDescFromInputDevices is m_MainCamera's exclusion,

@@ -16,7 +16,7 @@ struct OutputVs{
 };
 
 float4 main(in OutputVs input):SV_Target{
-    // float4 RTResColor = RTRes.Sample(SSampler,input.texcoord);
-    float4 RTResColor = float4(1.0,0.0,0.0,1.0);
+    float4 RTResColor = RTRes.Sample(SSampler,float2(input.texcoord.x,1.0-input.texcoord.y));
+    // float4 RTResColor = float4(input.texcoord,0.0,1.0);
     return RTResColor;
 }

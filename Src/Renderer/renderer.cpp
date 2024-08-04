@@ -20,6 +20,7 @@ MTXRenderer::~MTXRenderer() {
   m_interface.DestroySwapChain(*m_swapChain);
   m_interface.DestroyDescriptorPool(*m_descriptorPool);
   m_interface.DestroyDescriptor(*m_sampler);
+  m_interface.DestroyDescriptor(*m_rayTracingSampleView);
   m_interface.destroy();
 
   DestroyUI(m_interface);
@@ -88,7 +89,7 @@ bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
   createRayTracingPipeline();
   createPostProcessPipeline();
   createDescriptorSets();
-  createRayTracingTex(nri::Format::RGBA8_UNORM);
+  createRayTracingTex(nri::Format::RGBA32_SFLOAT);
   createBLAS();
   createTLAS();
   createSBT();
@@ -121,6 +122,8 @@ void MTXRenderer::createRayTracingTex(nri::Format fmt) {
   MTX_CHECK(m_interface.CreateTexture2DView(textureViewDesc, m_rayTracingTexture->imageView));
   const nri::DescriptorRangeUpdateDesc updateDesc{&(m_rayTracingTexture->imageView), 1, 0};
   m_interface.UpdateDescriptorRanges(*m_descriptorSets[0], 0, 1, &updateDesc);
+  textureViewDesc.viewType = nri::Texture2DViewType::SHADER_RESOURCE_2D;
+  MTX_CHECK(m_interface.CreateTexture2DView(textureViewDesc,m_rayTracingSampleView));
 }
 
 void MTXRenderer::initCamera() {
@@ -283,7 +286,7 @@ void MTXRenderer::createPostProcessPipeline(){
   nri::RasterizationDesc rasterizationDesc = {};
   rasterizationDesc.viewportNum = 1;
   rasterizationDesc.fillMode = nri::FillMode::SOLID;
-  rasterizationDesc.cullMode = nri::CullMode::BACK;
+  rasterizationDesc.cullMode = nri::CullMode::NONE;
 
   nri::ColorAttachmentDesc colorAttachmentDesc = {};
   colorAttachmentDesc.format = nri::Format::RGBA8_SNORM;
@@ -521,7 +524,7 @@ void MTXRenderer::updateDescriptorSets() {
   bufferRangeUpdateDesc.offsetInRange = 0;
   m_interface.UpdateDescriptorRanges(*m_descriptorSets[0], 2, 1, &bufferRangeUpdateDesc);
   /*-------------------update post descriptor----------------------------*/
-  nri::Descriptor* postRanges[2] = {m_rayTracingTexture->imageView,m_sampler};
+  nri::Descriptor* postRanges[2] = {m_rayTracingSampleView,m_sampler};
   for(int i = 0;i<helper::GetCountOf(postRanges);++i){
     bufferRangeUpdateDesc.descriptorNum =1;
     bufferRangeUpdateDesc.descriptors = postRanges+i;
@@ -738,8 +741,8 @@ void MTXRenderer::RenderFrame(uint32_t frameIndex) {
   m_interface.BeginCommandBuffer(cmdBuf, m_descriptorPool);
   {
     textureTransitions[0].texture = (frame._frameTexture.tex);
-    textureTransitions[0].after = {nri::AccessBits::COPY_DESTINATION,
-                                   nri::Layout::COPY_DESTINATION};
+    textureTransitions[0].after = {nri::AccessBits::COLOR_ATTACHMENT,
+                                   nri::Layout::COLOR_ATTACHMENT};
     textureTransitions[0].mipNum = 1;
     textureTransitions[0].arraySize = 1;
 
@@ -782,13 +785,33 @@ void MTXRenderer::RenderFrame(uint32_t frameIndex) {
 /*-------------------ray tracing end,post process begin---------------------------------*/
 
     textureTransitions[1].before = textureTransitions[1].after;
-    textureTransitions[1].after = {nri::AccessBits::COPY_SOURCE, nri::Layout::COPY_SOURCE};
+    textureTransitions[1].after = {nri::AccessBits::SHADER_RESOURCE, nri::Layout::SHADER_RESOURCE};
     barrierGroupDesc.textures = &textureTransitions[1];
     barrierGroupDesc.textureNum = 1;
     m_interface.CmdBarrier(cmdBuf, barrierGroupDesc);
 
-    m_interface.CmdCopyTexture(cmdBuf, *(frame._frameTexture.tex), nullptr,
-                               *(m_rayTracingTexture->tex), nullptr);
+    // m_interface.CmdCopyTexture(cmdBuf, *(frame._frameTexture.tex), nullptr,
+    //                            *(m_rayTracingTexture->tex), nullptr);
+
+    nri::AttachmentsDesc attachmentsDesc = {};
+    attachmentsDesc.colorNum = 1;
+    attachmentsDesc.colors = &frame._frameTexture.imageView;
+    m_interface.CmdBeginRendering(cmdBuf,attachmentsDesc);
+    {
+      {
+        helper::Annotation annotation(m_interface,cmdBuf,"postProcess");
+        const nri::Viewport viewport = {0.0,0.0,(float)m_WindowResolution.x,(float)m_WindowResolution.y};
+        m_interface.CmdSetViewports(cmdBuf,&viewport,1);
+        m_interface.CmdSetPipelineLayout(cmdBuf,m_postProcessPipeline->getPipelineLayout());
+        m_interface.CmdSetPipeline(cmdBuf,m_postProcessPipeline->getPipeline());
+        m_interface.CmdSetConstants(cmdBuf,0,&m_postConstant,sizeof(m_postConstant));
+        m_interface.CmdSetDescriptorSet(cmdBuf,0,*m_postDescriptorSets[0],nullptr);
+        nri::Rect scissor = {0,0,(nri::Dim_t)m_WindowResolution.x,(nri::Dim_t)m_WindowResolution.y};
+        m_interface.CmdSetScissors(cmdBuf,&scissor,1);
+        m_interface.CmdDraw(cmdBuf,{3,1,0,0});
+      }
+    }
+    m_interface.CmdEndRendering(cmdBuf);
 
     textureTransitions[0].before = textureTransitions[0].after;
     textureTransitions[0].after = {nri::AccessBits::UNKNOWN, nri::Layout::PRESENT};
