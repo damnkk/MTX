@@ -185,16 +185,19 @@ PipelineAllocator::allocatePipeline(const MtxPipelineAllocateInfo& allocInfo) {
       MTX_CHECK(_gfxInterface->CreateGraphicsPipeline(
           _gfxInterface->getDevice(), *((nri::GraphicsPipelineDesc*) allocInfo.pipelineDesc),
           pipelinePtr->pipeline));
+          break;
     }
     case MTX::PipelineType::Compute: {
       MTX_CHECK(_gfxInterface->CreateComputePipeline(
           _gfxInterface->getDevice(), *((nri::ComputePipelineDesc*) allocInfo.pipelineDesc),
           pipelinePtr->pipeline));
+          break;
     }
     case MTX::PipelineType::RayTracing: {
       MTX_CHECK(_gfxInterface->CreateRayTracingPipeline(
           _gfxInterface->getDevice(), *((nri::RayTracingPipelineDesc*) allocInfo.pipelineDesc),
           pipelinePtr->pipeline));
+          break;
     }
   }
   _gfxInterface->SetPipelineDebugName(pipelinePtr->getPipeline(), tempName.c_str());

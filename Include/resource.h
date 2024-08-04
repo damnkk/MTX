@@ -112,6 +112,7 @@ struct MtxPipeline : public Object {
   PipelineType         type = PipelineType::Graphics;
   void                 destroy(MTXInterface* interface) override;
   nri::Pipeline&       getPipeline() { return *pipeline; }
+  nri::PipelineLayout& getPipelineLayout(){return *pipelineLayout;}
   bool                 isValid() { return pipeline != nullptr; }
 };
 
