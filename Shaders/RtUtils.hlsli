@@ -446,3 +446,7 @@ float3 DisneySample(in State state, in float3 V, in float3 N, inout float3 L,
   }
   return f;
 }
+
+float3 DisneyEval(State state,float3 V,float3 N, float3 L,inout float pdf){
+  return float3(1.0,1.0,1.0);
+}

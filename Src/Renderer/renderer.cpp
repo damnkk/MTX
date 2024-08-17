@@ -81,7 +81,7 @@ bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
   nri::Format swpFormat = nri::Format::RGBA8_SNORM;
   createSwapChain(swpFormat);
   m_sceneLoader = std::make_shared<SceneLoader>(&m_interface);
-  m_sceneLoader->addEnvTexture("E:/repository/MTX/Asset/hdrTex/small_empty_room_1_2k.hdr");
+  m_sceneLoader->addEnvTexture("E:/repository/MTX/Asset/hdrTex/daytime.hdr");
   // m_SceneFile = "./Asset/models/DamagedHelmet/DamagedHelmet.gltf";
   // m_sceneLoader->loadScene(m_SceneFile);
   m_SceneFile = "./Asset/models/MetalRoughSpheres/MetalRoughSpheres.gltf";
@@ -170,13 +170,16 @@ void MTXRenderer::createSwapChain(nri::Format& format) {
 void MTXRenderer::createRayTracingPipeline() {
   MtxPipelineAllocateInfo     pipelineAllocInfo{};
   nri::RayTracingPipelineDesc pipelineDesc{};
-  nri::DescriptorRangeDesc    rangedescs[] = {
-      //set0 ---> rayTracing texture/ tlas / camera uniform
+  std::vector<nri::DescriptorRangeDesc> rangeDesc1 = {
+     //set0 ---> rayTracing texture/ tlas / camera uniform
       {0, 1, nri::DescriptorType::STORAGE_TEXTURE, nri::StageBits::RAYGEN_SHADER, false, false},
       {1, 1, nri::DescriptorType::ACCELERATION_STRUCTURE, nri::StageBits::RAYGEN_SHADER, false,
           false},
       {2, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::RAY_TRACING_SHADERS, false,
-          false},
+          false}
+
+  };
+  std::vector<nri::DescriptorRangeDesc> rangeDesc2 = {
       //set1 ---> material uniform/ vertices/ indices/ instance info/textureSampler
       {0, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::RAY_TRACING_SHADERS, false,
           false},
@@ -187,25 +190,30 @@ void MTXRenderer::createRayTracingPipeline() {
       {3, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER, false,
           false},
       {4, 1, nri::DescriptorType::SAMPLER, nri::StageBits::RAY_TRACING_SHADERS, false, false},
+      {5, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::RAY_TRACING_SHADERS, false, false}
+      };
+  
+  std::vector<nri::DescriptorRangeDesc> rangeDesc3 = {{
       //set2 ---> scene textures
-      {0, static_cast<uint32_t>(m_sceneLoader->getSceneTextures().size()),
-          nri::DescriptorType::TEXTURE, nri::StageBits::CLOSEST_HIT_SHADER,
-          nri::VARIABLE_DESCRIPTOR_NUM, nri::DESCRIPTOR_ARRAY},
-      //set3 ---> env textures
-      {0, static_cast<uint32_t>(m_sceneLoader->getEnvTextures().size()),
-          nri::DescriptorType::TEXTURE, nri::StageBits::MISS_SHADER, nri::VARIABLE_DESCRIPTOR_NUM,
-          nri::DESCRIPTOR_ARRAY},
-      //set4 ---> primitives info
-      {0, static_cast<uint32_t>(m_sceneLoader->getMeshes().size()),
-          nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER,
-          nri::VARIABLE_DESCRIPTOR_NUM, nri::DESCRIPTOR_ARRAY},
+      0, static_cast<uint32_t>(m_sceneLoader->getSceneTextures().size()),nri::DescriptorType::TEXTURE, nri::StageBits::CLOSEST_HIT_SHADER,
+          nri::VARIABLE_DESCRIPTOR_NUM, nri::DESCRIPTOR_ARRAY}};
+  std::vector<nri::DescriptorRangeDesc> rangeDesc4={
+        //set3 ---> env textures
+  {0, static_cast<uint32_t>(m_sceneLoader->getEnvTextures().size()),nri::DescriptorType::TEXTURE, nri::StageBits::MISS_SHADER, 
+  nri::VARIABLE_DESCRIPTOR_NUM,nri::DESCRIPTOR_ARRAY}
+  };
+      
+  std::vector<nri::DescriptorRangeDesc> rangeDesc5={
+  //set4 ---> primitives info
+  {0, static_cast<uint32_t>(m_sceneLoader->getMeshes().size()),nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER,
+      nri::VARIABLE_DESCRIPTOR_NUM, nri::DESCRIPTOR_ARRAY},
   };
 
-  std::vector<nri::DescriptorSetDesc> descs = {{0, rangedescs, 3},
-                                               {1, rangedescs + 3, 5},
-                                               {2, rangedescs + 8, 1},
-                                               {3, rangedescs + 9, 1},
-                                               {4, rangedescs + 10, 1}};
+  std::vector<nri::DescriptorSetDesc> descs = {{0, rangeDesc1.data(), (uint32_t)rangeDesc1.size()},
+                                               {1, rangeDesc2.data(), (uint32_t)rangeDesc2.size()},
+                                               {2, rangeDesc3.data(), (uint32_t)rangeDesc3.size()},
+                                               {3, rangeDesc4.data(), (uint32_t)rangeDesc4.size()},
+                                               {4, rangeDesc5.data(), (uint32_t)rangeDesc5.size()}};
 
   nri::PushConstantDesc pushConstDesc{0, sizeof(MtxRayTracingPushConstant),
                                       nri::StageBits::RAY_TRACING_SHADERS};
@@ -450,6 +458,12 @@ void MTXRenderer::updateDescriptorSets() {
   bufferViewDesc.offset = 0;
   m_interface.CreateBufferView(bufferViewDesc, m_cameras.front().camUniformBuffer->bufView);
 
+  bufferViewDesc.buffer = m_sceneLoader->getEnvPdfBuffer()[0]->buf;
+  bufferViewDesc.viewType = nri::BufferViewType::SHADER_RESOURCE_STORAGE;
+  bufferViewDesc.size = m_sceneLoader->getEnvPdfBuffer()[0]->size();
+  bufferViewDesc.offset = 0;
+  m_interface.CreateBufferView(bufferViewDesc, m_sceneLoader->getEnvPdfBuffer()[0]->bufView);
+
   nri::SamplerDesc samplerDesc{};
   samplerDesc.addressModes.u = nri::AddressMode::REPEAT;
   samplerDesc.addressModes.v = nri::AddressMode::REPEAT;
@@ -507,10 +521,10 @@ void MTXRenderer::updateDescriptorSets() {
     rangeUpdateDesc.descriptors = &(primitDatas[i]->bufView);
     m_interface.UpdateDescriptorRanges(*m_descriptorSets[4], 0, 1, &rangeUpdateDesc);
   }
-
-  nri::Descriptor* bufferRanges[5] = {materialBuffer->bufView, sceneVerticesBuffer->bufView,
+  auto& envPdfBuffer = m_sceneLoader->getEnvPdfBuffer().front();
+  nri::Descriptor* bufferRanges[6] = {materialBuffer->bufView, sceneVerticesBuffer->bufView,
                                       sceneIndicesBuffer->bufView, instanceInfoBuffer->bufView,
-                                      m_sampler};
+                                      m_sampler, envPdfBuffer->bufView};
   nri::DescriptorRangeUpdateDesc bufferRangeUpdateDesc = {};
   for (int i = 0; i < helper::GetCountOf(bufferRanges); ++i) {
     bufferRangeUpdateDesc.descriptorNum = 1;
