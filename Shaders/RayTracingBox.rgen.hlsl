@@ -1,10 +1,6 @@
 #include "NRICompatibility.hlsli"
 #include "RtUtils.hlsli"
-
-NRI_RESOURCE(RWTexture2D<float4>, outputImage, u, 0, 0);
-NRI_RESOURCE(RaytracingAccelerationStructure, topLevelAS, t, 1, 0);
-NRI_RESOURCE(StructuredBuffer<CameraUniform>, cameraUniform, t, 2, 0);
-NRI_PUSH_CONSTANTS(PushConstant, RTConstant, 0);
+#include "layout.hlsli"
 
 [shader("raygeneration")] void raygen() {
   // declar
