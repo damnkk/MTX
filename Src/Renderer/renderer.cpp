@@ -215,7 +215,7 @@ void MTXRenderer::createRayTracingPipeline() {
           nri::VARIABLE_DESCRIPTOR_NUM, nri::DESCRIPTOR_ARRAY}};
   std::vector<nri::DescriptorRangeDesc> rangeDesc4={
         //set3 ---> env textures
-  {0, static_cast<uint32_t>(m_sceneLoader->getEnvTextures().size()),nri::DescriptorType::TEXTURE, nri::StageBits::MISS_SHADER, 
+  {0, static_cast<uint32_t>(m_sceneLoader->getEnvTextures().size()),nri::DescriptorType::TEXTURE, nri::StageBits::RAY_TRACING_SHADERS, 
   nri::VARIABLE_DESCRIPTOR_NUM,nri::DESCRIPTOR_ARRAY}
   };
       

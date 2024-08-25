@@ -57,7 +57,7 @@ float3 Environment_sample(Texture2D<float4> envMap,in float3 randVal,out float3 
 }
 
 float4 EnvSample(inout float3 radiance,inout RayRayloadType payLoad){
-  float3 lightDir;
+  float3 lightDir=float3(0.0,1.0,0.0);
   float pdf;
   float3 randVal = float3(rand(payLoad.seed),rand(payLoad.seed),rand(payLoad.seed));
   radiance  = Environment_sample(envTextures[0],randVal,lightDir,pdf);
@@ -222,8 +222,6 @@ VisibilityContribution DirectLight(in Ray r, in State state,inout RayRayloadType
   r.origin = payload.nextRayOrigin;
   r.direction = payload.nextRayDirection;
   VisibilityContribution vcontrib = DirectLight(r,state,payload);
-  
-
   // sampleEnv
   BsdfSampleRec bsdfSampleRec;
   bsdfSampleRec.L = float3(0.0, 0.0, 0.0);
@@ -247,6 +245,7 @@ VisibilityContribution DirectLight(in Ray r, in State state,inout RayRayloadType
       vertPosition, dot(bsdfSampleRec.L, state.ffnormal) > 0 ? state.ffnormal
                                                              : -state.ffnormal);
   if(vcontrib.visible == true){
+    // float3 shadowRayDirection = vcontrib.lightDir;
     float3 shadowRayDirection = payload.nextRayDirection;
     float3 shadowRayOrigin = payload.nextRayOrigin;
     RayDesc rayDesc;
@@ -255,12 +254,12 @@ VisibilityContribution DirectLight(in Ray r, in State state,inout RayRayloadType
     rayDesc.TMin = 0.0001;
     rayDesc.TMax = 100000;
 
-    uint rayFlags = RAY_FLAG_FORCE_OPAQUE|RAY_FLAG_SKIP_CLOSEST_HIT_SHADER|RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH          ;
+    uint rayFlags = RAY_FLAG_FORCE_OPAQUE|RAY_FLAG_SKIP_CLOSEST_HIT_SHADER|RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH;
     EnvPayload shadowPLoad;
     TraceRay(topLevelAS,rayFlags, 0xff,0,1,1,rayDesc,shadowPLoad);
     if(shadowPLoad.isHit){
       payload.directLight.xyz +=vcontrib.radiance;
-      // payload.directLight +=float4(10.0,1.0,0.0,1.0);
+      // payload.directLight =float4(10.0,1.0,0.0,1.0);
     }
   }
 }
