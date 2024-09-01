@@ -304,6 +304,7 @@ std::vector<EnvAccel> createEnvironmentAccel(uint8_t* pixels,uint32_t imageWidth
       total += cieLuminance;
     }
   }
+  //到这就遍历完了,然后求平均亮度
   float average = static_cast<float>(total)/static_cast<float>(rx*ry);
   float integral = buildAliasmap(importanceData,envAccel);
   const float invEnvIntegral = 1.0f/integral;

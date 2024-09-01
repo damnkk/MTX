@@ -448,5 +448,77 @@ float3 DisneySample(in State state, in float3 V, in float3 N, inout float3 L,
 }
 
 float3 DisneyEval(State state,float3 V,float3 N, float3 L,inout float pdf){
-  return float3(1.0,1.0,1.0);
+    float3 H;
+
+  if(dot(N, L) < 0.0)
+    H = normalize(L * (1.0 / state.eta) + V);
+  else
+    H = normalize(L + V);
+
+  if(dot(N, H) < 0.0)
+    H = -H;
+
+  float diffuseRatio     = 0.5 * (1.0 - state.mat.metallic);
+  float primarySpecRatio = 1.0 / (1.0 + state.mat.clearcoat);
+  float transWeight      = (1.0 - state.mat.metallic) * state.mat.transmission;
+
+  float3  brdf    = float3(0.0,0.0,0.0);
+  float3  bsdf    = float3(0.0,0.0,0.0);
+  float brdfPdf = 0.0;
+  float bsdfPdf = 0.0;
+
+  // BSDF
+  if(transWeight > 0.0)
+  {
+    // Transmission
+    if(dot(N, L) < 0.0)
+    {
+      bsdf = EvalDielectricRefraction(state, V, N, L, H, bsdfPdf);
+    }
+    else  // Reflection
+    {
+      bsdf = EvalDielectricReflection(state, V, N, L, H, bsdfPdf);
+    }
+  }
+
+  float m_pdf;
+
+  if(transWeight < 1.0)
+  {
+    // Subsurface
+    if(dot(N, L) < 0.0)
+    {
+      // TODO: Double check this. Fails furnace test when used with rough transmission
+      if(state.mat.subsurface > 0.0)
+      {
+        brdf    = EvalSubsurface(state, V, N, L, m_pdf);
+        brdfPdf = m_pdf * state.mat.subsurface * diffuseRatio;
+      }
+    }
+    // BRDF
+    else
+    {
+      float3  Cdlin = state.mat.albedo;
+      float Cdlum = 0.3 * Cdlin.x + 0.6 * Cdlin.y + 0.1 * Cdlin.z;  // luminance approx.
+
+      float3 Ctint = Cdlum > 0.0 ? Cdlin / Cdlum : float3(1.0f,1.0f,1.0f);  // normalize lum. to isolate hue+sat
+      float3 Cspec0 = lerp(state.mat.specular * 0.08 * lerp(float3(1.0,1.0,1.0), Ctint, state.mat.specularTint), Cdlin, state.mat.metallic);
+      float3 Csheen = state.mat.sheenTint;  //mix(vec3(1.0), Ctint, state.mat.sheenTint);
+
+      // Diffuse
+      brdf += EvalDiffuse(state, Csheen, V, N, L, H, m_pdf);
+      brdfPdf += m_pdf * (1.0 - state.mat.subsurface) * diffuseRatio;
+
+      // Specular
+      brdf += EvalSpecular(state, Cspec0, V, N, L, H, m_pdf);
+      brdfPdf += m_pdf * primarySpecRatio * (1.0 - diffuseRatio);
+
+      // Clearcoat
+      brdf += EvalClearcoat(state, V, N, L, H, m_pdf);
+      brdfPdf += m_pdf * (1.0 - primarySpecRatio) * (1.0 - diffuseRatio);
+    }
+  }
+
+  pdf = lerp(brdfPdf, bsdfPdf, transWeight);
+  return lerp(brdf, bsdf, transWeight);
 }
