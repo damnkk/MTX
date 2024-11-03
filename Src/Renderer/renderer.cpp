@@ -81,10 +81,10 @@ bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
   nri::Format swpFormat = nri::Format::RGBA8_SNORM;
   createSwapChain(swpFormat);
   m_sceneLoader = std::make_shared<SceneLoader>(&m_interface);
-  m_sceneLoader->addEnvTexture("E:/repository/MTX/Asset/hdrTex/daytime.hdr");
+  m_sceneLoader->addEnvTexture("./Asset/hdrTex/rosendal_plains_2_2k.hdr");
   // m_SceneFile = "./Asset/models/DamagedHelmet/DamagedHelmet.gltf";
   // m_sceneLoader->loadScene(m_SceneFile);
-  m_SceneFile = "./Asset/models/MetalRoughSpheres/MetalRoughSpheres.gltf";
+  m_SceneFile = "./Asset/models/Camera/Camera_01_2k.gltf";
   m_sceneLoader->loadScene(m_SceneFile);
   createRayTracingPipeline();
   createPostProcessPipeline();
@@ -394,7 +394,7 @@ void MTXRenderer::updateDescriptorSets() {
                             .indexCount = mesh.indexCount,
                             .meshIdx = meshIdx});
     ++meshIdx;
-    primitiveOffset += (mesh.indexOffset % 3);
+    primitiveOffset += (mesh.indexCount / 3);
   }
 
   std::vector<std::shared_ptr<MtxTexture>> sceneTextures = m_sceneLoader->getSceneTextures();

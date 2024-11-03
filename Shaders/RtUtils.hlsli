@@ -367,7 +367,6 @@ float3 DisneySample(in State state, in float3 V, in float3 N, inout float3 L,
 
   float diffuseRatio = 0.5 * (1.0 - state.mat.metallic);
   float transWeight = (1.0 - state.mat.metallic) * state.mat.transmission;
-  transWeight = 1.0f;
   float3 Cdlin = state.mat.albedo;
   float Cdlum = 0.3 * Cdlin.x + 0.6 * Cdlin.y + 0.1 * Cdlin.z;
 
