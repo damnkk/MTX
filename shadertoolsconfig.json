@@ -1,0 +1,7 @@
+{
+    "hlsl.additionalIncludeDirectories": [
+    
+    ".\\Shaders",
+    ".\\External\\NRIFramework\\External\\NRI\\Include"
+  ]
+}

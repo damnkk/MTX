@@ -17,6 +17,13 @@ struct SceneGraph;
 const uint32_t MAX_SCENE_TEXTURE_CNT = 4096;
 using u32 = uint32_t;
 
+struct EnvAccel{
+  uint alias;
+  float q;
+  float pdf;
+  float aliasPdf;
+};
+
 struct BoundingBox {
   glm::vec3 m_min = glm::vec3(0.0f);
   glm::vec3 m_max = glm::vec3(0.0f);
@@ -90,6 +97,7 @@ class SceneLoader {
  public:
   std::vector<std::shared_ptr<MtxTexture>>& getSceneTextures() { return m_sceneTextures; }
   std::vector<std::shared_ptr<MtxTexture>>& getEnvTextures() { return m_envTextures; }
+  std::vector<std::shared_ptr<MtxBuffer>>&  getEnvPdfBuffer(){return m_envPdfBuffers;}
   std::shared_ptr<SceneGraph>               getSceneGraph() { return m_sceneGraph; }
   std::vector<Vertex>&                      getVertices() { return m_sceneVertices; }
   std::vector<uint32_t>&                    getIndices() { return m_sceneIndices; }
@@ -110,6 +118,7 @@ class SceneLoader {
   int                                      m_materialOffset = 0;
   std::vector<std::shared_ptr<MtxTexture>> m_sceneTextures;
   std::vector<std::shared_ptr<MtxTexture>> m_envTextures;
+  std::vector<std::shared_ptr<MtxBuffer>>  m_envPdfBuffers;
   int                                      m_sceneTextureOffset = 0;
   //geom data
   /*

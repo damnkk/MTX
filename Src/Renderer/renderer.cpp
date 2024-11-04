@@ -37,7 +37,7 @@ bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
   nri::DeviceCreationDesc deviceCreationDesc = {};
   deviceCreationDesc.graphicsAPI = graphicsAPI;
   deviceCreationDesc.enableAPIValidation = false;
-  deviceCreationDesc.enableNRIValidation = true;
+  deviceCreationDesc.enableNRIValidation = false;
   deviceCreationDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
   deviceCreationDesc.adapterDesc = nullptr;
   deviceCreationDesc.memoryAllocatorInterface = m_MemoryAllocatorInterface;
@@ -81,10 +81,10 @@ bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
   nri::Format swpFormat = nri::Format::RGBA8_SNORM;
   createSwapChain(swpFormat);
   m_sceneLoader = std::make_shared<SceneLoader>(&m_interface);
-  m_sceneLoader->addEnvTexture("E:/repository/MTX/Asset/hdrTex/small_empty_room_1_2k.hdr");
+  m_sceneLoader->addEnvTexture("./Asset/hdrTex/rosendal_plains_2_2k.hdr");
   // m_SceneFile = "./Asset/models/DamagedHelmet/DamagedHelmet.gltf";
   // m_sceneLoader->loadScene(m_SceneFile);
-  m_SceneFile = "./Asset/models/MetalRoughSpheres/MetalRoughSpheres.gltf";
+  m_SceneFile = "./Asset/models/Camera/Camera_01_2k.gltf";
   m_sceneLoader->loadScene(m_SceneFile);
   createRayTracingPipeline();
   createPostProcessPipeline();
@@ -92,7 +92,6 @@ bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
   createRayTracingTex(nri::Format::RGBA32_SFLOAT);
   createBLAS();
   createTLAS();
-  createSBT();
   updateDescriptorSets();
   MTX_INFO("----MTXRenderer initialized successfully-----")
   return InitUI(m_interface, m_interface, m_interface.getDevice(), swpFormat);
@@ -167,16 +166,36 @@ void MTXRenderer::createSwapChain(nri::Format& format) {
   }
 }
 
+struct ShaderLoader{
+  ShaderLoader(MTXInterface* interface) : _interface(interface){}
+  ShaderLoader& addShader(std::string path,const char* introName, ::utils::ShaderCodeStorage& shaderCodeStorage){
+    
+    shaderDescs.emplace_back(::utils::LoadShader(_interface->GetDeviceDesc(_interface->getDevice()).graphicsAPI,path,shaderCodeStorage,introName));
+    if((int(shaderDescs.back().stage)|int(nri::StageBits::RAY_TRACING_SHADERS))!=0){
+      shaderTypeNum[int(shaderDescs.back().stage)>>12]+=1;
+    }
+    return *this;
+  }
+  std::vector<nri::ShaderDesc>& getShaderDesc() { return shaderDescs; }
+  std::array<int,6> getShaderTypeNum() { return shaderTypeNum; }
+  std::vector<nri::ShaderDesc> shaderDescs;
+  std::array<int,6> shaderTypeNum={};
+  MTXInterface* _interface;
+};
+
 void MTXRenderer::createRayTracingPipeline() {
   MtxPipelineAllocateInfo     pipelineAllocInfo{};
   nri::RayTracingPipelineDesc pipelineDesc{};
-  nri::DescriptorRangeDesc    rangedescs[] = {
-      //set0 ---> rayTracing texture/ tlas / camera uniform
+  std::vector<nri::DescriptorRangeDesc> rangeDesc1 = {
+     //set0 ---> rayTracing texture/ tlas / camera uniform
       {0, 1, nri::DescriptorType::STORAGE_TEXTURE, nri::StageBits::RAYGEN_SHADER, false, false},
-      {1, 1, nri::DescriptorType::ACCELERATION_STRUCTURE, nri::StageBits::RAYGEN_SHADER, false,
+      {1, 1, nri::DescriptorType::ACCELERATION_STRUCTURE, nri::StageBits::RAYGEN_SHADER|nri::StageBits::CLOSEST_HIT_SHADER, false,
           false},
       {2, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::RAY_TRACING_SHADERS, false,
-          false},
+          false}
+
+  };
+  std::vector<nri::DescriptorRangeDesc> rangeDesc2 = {
       //set1 ---> material uniform/ vertices/ indices/ instance info/textureSampler
       {0, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::RAY_TRACING_SHADERS, false,
           false},
@@ -187,25 +206,30 @@ void MTXRenderer::createRayTracingPipeline() {
       {3, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER, false,
           false},
       {4, 1, nri::DescriptorType::SAMPLER, nri::StageBits::RAY_TRACING_SHADERS, false, false},
+      {5, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::RAY_TRACING_SHADERS, false, false}
+      };
+  
+  std::vector<nri::DescriptorRangeDesc> rangeDesc3 = {{
       //set2 ---> scene textures
-      {0, static_cast<uint32_t>(m_sceneLoader->getSceneTextures().size()),
-          nri::DescriptorType::TEXTURE, nri::StageBits::CLOSEST_HIT_SHADER,
-          nri::VARIABLE_DESCRIPTOR_NUM, nri::DESCRIPTOR_ARRAY},
-      //set3 ---> env textures
-      {0, static_cast<uint32_t>(m_sceneLoader->getEnvTextures().size()),
-          nri::DescriptorType::TEXTURE, nri::StageBits::MISS_SHADER, nri::VARIABLE_DESCRIPTOR_NUM,
-          nri::DESCRIPTOR_ARRAY},
-      //set4 ---> primitives info
-      {0, static_cast<uint32_t>(m_sceneLoader->getMeshes().size()),
-          nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER,
-          nri::VARIABLE_DESCRIPTOR_NUM, nri::DESCRIPTOR_ARRAY},
+      0, static_cast<uint32_t>(m_sceneLoader->getSceneTextures().size()),nri::DescriptorType::TEXTURE, nri::StageBits::CLOSEST_HIT_SHADER,
+          nri::VARIABLE_DESCRIPTOR_NUM, nri::DESCRIPTOR_ARRAY}};
+  std::vector<nri::DescriptorRangeDesc> rangeDesc4={
+        //set3 ---> env textures
+  {0, static_cast<uint32_t>(m_sceneLoader->getEnvTextures().size()),nri::DescriptorType::TEXTURE, nri::StageBits::RAY_TRACING_SHADERS, 
+  nri::VARIABLE_DESCRIPTOR_NUM,nri::DESCRIPTOR_ARRAY}
+  };
+      
+  std::vector<nri::DescriptorRangeDesc> rangeDesc5={
+  //set4 ---> primitives info
+  {0, static_cast<uint32_t>(m_sceneLoader->getMeshes().size()),nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER,
+      nri::VARIABLE_DESCRIPTOR_NUM, nri::DESCRIPTOR_ARRAY},
   };
 
-  std::vector<nri::DescriptorSetDesc> descs = {{0, rangedescs, 3},
-                                               {1, rangedescs + 3, 5},
-                                               {2, rangedescs + 8, 1},
-                                               {3, rangedescs + 9, 1},
-                                               {4, rangedescs + 10, 1}};
+  std::vector<nri::DescriptorSetDesc> descs = {{0, rangeDesc1.data(), (uint32_t)rangeDesc1.size()},
+                                               {1, rangeDesc2.data(), (uint32_t)rangeDesc2.size()},
+                                               {2, rangeDesc3.data(), (uint32_t)rangeDesc3.size()},
+                                               {3, rangeDesc4.data(), (uint32_t)rangeDesc4.size()},
+                                               {4, rangeDesc5.data(), (uint32_t)rangeDesc5.size()}};
 
   nri::PushConstantDesc pushConstDesc{0, sizeof(MtxRayTracingPushConstant),
                                       nri::StageBits::RAY_TRACING_SHADERS};
@@ -219,33 +243,34 @@ void MTXRenderer::createRayTracingPipeline() {
   nri::PipelineLayout* layout;
 
   MTX_CHECK(m_interface.CreatePipelineLayout(m_interface.getDevice(), pipelineLayoutDesc, layout));
-  ::utils::ShaderCodeStorage   shaderCodeStorage;
-  std::vector<nri::ShaderDesc> shaders = {
-      ::utils::LoadShader(m_interface.GetDeviceDesc(m_interface.getDevice()).graphicsAPI,
-                          "RayTracingBox.rgen", shaderCodeStorage, "raygen"),
-      ::utils::LoadShader(m_interface.GetDeviceDesc(m_interface.getDevice()).graphicsAPI,
-                          "RayTracingBox.rmiss", shaderCodeStorage, "miss"),
-      ::utils::LoadShader(m_interface.GetDeviceDesc(m_interface.getDevice()).graphicsAPI,
-                          "RayTracingBox.rchit", shaderCodeStorage, "closest_hit"),
-  };
+  ShaderLoader shaderLoader(&m_interface);
+  ::utils::ShaderCodeStorage storage;
+  shaderLoader.addShader("RayTracingBox.rgen", "raygen",storage)
+              .addShader("RayTracingBox.rmiss",  "miss",storage)
+              .addShader("envSample.rmiss","envMiss",storage)
+              .addShader("RayTracingBox.rchit", "closest_hit",storage);
 
   nri::ShaderLibrary shaderLib = {};
-  shaderLib.shaders = shaders.data();
-  shaderLib.shaderNum = shaders.size();
+  shaderLib.shaders = shaderLoader.getShaderDesc().data();
+  shaderLib.shaderNum = shaderLoader.getShaderDesc().size();
+  std::vector<nri::ShaderGroupDesc> shaderGroups;
 
-  nri::ShaderGroupDesc groupDesc[] = {{1}, {2}, {3}};
+  for(uint32_t i = 0;i<shaderLoader.getShaderDesc().size();++i){
+    shaderGroups.push_back({i+1});
+  }
 
   pipelineDesc.recursionDepthMax = m_maxBounce;
   pipelineDesc.payloadAttributeSizeMax = 128;
   pipelineDesc.intersectionAttributeSizeMax = 128;
   pipelineDesc.pipelineLayout = layout;
-  pipelineDesc.shaderGroupDescs = groupDesc;
-  pipelineDesc.shaderGroupDescNum = helper::GetCountOf(groupDesc);
+  pipelineDesc.shaderGroupDescs = shaderGroups.data();
+  pipelineDesc.shaderGroupDescNum = helper::GetCountOf(shaderGroups);
   pipelineDesc.shaderLibrary = &shaderLib;
   pipelineAllocInfo.pipelineDesc = &pipelineDesc;
   pipelineAllocInfo.pipelineType = PipelineType::RayTracing;
   pipelineAllocInfo.name = "RayTracingName";
   m_rayTracingPipeline = m_interface.allocatePipeline(pipelineAllocInfo);
+  createSBT(m_rayTracingPipeline,shaderLoader);
 }
 
 void MTXRenderer::createPostProcessPipeline(){
@@ -369,7 +394,7 @@ void MTXRenderer::updateDescriptorSets() {
                             .indexCount = mesh.indexCount,
                             .meshIdx = meshIdx});
     ++meshIdx;
-    primitiveOffset += (mesh.indexOffset % 3);
+    primitiveOffset += (mesh.indexCount / 3);
   }
 
   std::vector<std::shared_ptr<MtxTexture>> sceneTextures = m_sceneLoader->getSceneTextures();
@@ -450,6 +475,12 @@ void MTXRenderer::updateDescriptorSets() {
   bufferViewDesc.offset = 0;
   m_interface.CreateBufferView(bufferViewDesc, m_cameras.front().camUniformBuffer->bufView);
 
+  bufferViewDesc.buffer = m_sceneLoader->getEnvPdfBuffer()[0]->buf;
+  bufferViewDesc.viewType = nri::BufferViewType::SHADER_RESOURCE_STORAGE;
+  bufferViewDesc.size = m_sceneLoader->getEnvPdfBuffer()[0]->size();
+  bufferViewDesc.offset = 0;
+  m_interface.CreateBufferView(bufferViewDesc, m_sceneLoader->getEnvPdfBuffer()[0]->bufView);
+
   nri::SamplerDesc samplerDesc{};
   samplerDesc.addressModes.u = nri::AddressMode::REPEAT;
   samplerDesc.addressModes.v = nri::AddressMode::REPEAT;
@@ -507,10 +538,10 @@ void MTXRenderer::updateDescriptorSets() {
     rangeUpdateDesc.descriptors = &(primitDatas[i]->bufView);
     m_interface.UpdateDescriptorRanges(*m_descriptorSets[4], 0, 1, &rangeUpdateDesc);
   }
-
-  nri::Descriptor* bufferRanges[5] = {materialBuffer->bufView, sceneVerticesBuffer->bufView,
+  auto& envPdfBuffer = m_sceneLoader->getEnvPdfBuffer().front();
+  nri::Descriptor* bufferRanges[6] = {materialBuffer->bufView, sceneVerticesBuffer->bufView,
                                       sceneIndicesBuffer->bufView, instanceInfoBuffer->bufView,
-                                      m_sampler};
+                                      m_sampler, envPdfBuffer->bufView};
   nri::DescriptorRangeUpdateDesc bufferRangeUpdateDesc = {};
   for (int i = 0; i < helper::GetCountOf(bufferRanges); ++i) {
     bufferRangeUpdateDesc.descriptorNum = 1;
@@ -659,15 +690,16 @@ void MTXRenderer::createTLAS() {
   m_interface.UpdateDescriptorRanges(*m_descriptorSets[0], 1, 1, &updateDesc);
 }
 
-void MTXRenderer::createSBT() {
+void MTXRenderer::createSBT(std::shared_ptr<MtxPipeline> pipelinePtr,ShaderLoader& shaderLoader) {
   const nri::DeviceDesc& deviceDesc = m_interface.GetDeviceDesc(m_interface.getDevice());
   const uint64_t         identifierSize = deviceDesc.rayTracingShaderGroupIdentifierSize;
   const uint64_t         tableAlignment = deviceDesc.rayTracingShaderTableAlignment;
 
   m_shaderGroupIdentifierSize = identifierSize;
   m_missShaderOffset = helper::Align(identifierSize, tableAlignment);
-  m_hitShaderGroupOffset = helper::Align(m_missShaderOffset + identifierSize, tableAlignment);
-  const uint64_t SBTSize = helper::Align(m_hitShaderGroupOffset + identifierSize, tableAlignment);
+  int test = int(nri::StageBits::MISS_SHADER)>>12;
+  m_hitShaderGroupOffset = helper::Align(m_missShaderOffset + identifierSize*shaderLoader.getShaderTypeNum()[int(nri::StageBits::MISS_SHADER)>>12], tableAlignment);
+  const uint64_t SBTSize = helper::Align(m_hitShaderGroupOffset + identifierSize*shaderLoader.getShaderTypeNum()[int(nri::StageBits::CLOSEST_HIT_SHADER)>>12], tableAlignment);
 
   MtxBufferAllocInfo bufferInfo{};
   bufferInfo._desc.size = SBTSize;
@@ -676,10 +708,20 @@ void MTXRenderer::createSBT() {
   bufferInfo._memLocation = nri::MemoryLocation::DEVICE;
   m_shaderBindingTable = m_interface.allocateBuffer(bufferInfo);
   std::vector<uint8_t> content((size_t) SBTSize, 0);
-  for (uint32_t i = 0; i < 3; ++i) {
-    m_interface.WriteShaderGroupIdentifiers(
-        m_rayTracingPipeline->getPipeline(), i, 1,
-        content.data() + i * helper::Align(identifierSize, tableAlignment));
+  int groupIdx = 0;
+  for(int i = 0;i<shaderLoader.getShaderTypeNum()[int(nri::StageBits::RAYGEN_SHADER)>>12];++i){
+    m_interface.WriteShaderGroupIdentifiers(m_rayTracingPipeline->getPipeline(),groupIdx,1,content.data()+i*identifierSize);
+    groupIdx ++;
+  }
+
+  for(int i = 0;i<shaderLoader.getShaderTypeNum()[int(nri::StageBits::MISS_SHADER)>>12];++i){
+    m_interface.WriteShaderGroupIdentifiers(m_rayTracingPipeline->getPipeline(),groupIdx,1,content.data()+m_missShaderOffset+i*identifierSize);
+    groupIdx ++;
+  }
+
+  for(int i = 0;i<shaderLoader.getShaderTypeNum()[int(nri::StageBits::CLOSEST_HIT_SHADER)>>12];++i){
+    m_interface.WriteShaderGroupIdentifiers(m_rayTracingPipeline->getPipeline(),groupIdx,1,content.data()+m_hitShaderGroupOffset+i*identifierSize);
+    groupIdx ++;
   }
 
   nri::BufferUploadDesc dataDesc = {};

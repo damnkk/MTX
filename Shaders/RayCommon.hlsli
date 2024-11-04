@@ -25,7 +25,7 @@ struct RayRayloadType {
   uint seed;
 };
 
-struct envPayload {
+struct EnvPayload {
   bool isHit;
 };
 
@@ -133,4 +133,11 @@ struct PushConstant {
 
 struct IntersectionAttributes {
   float2 barycentrics;
+};
+
+struct EnvAccel{
+  uint alias;
+  float q;
+  float pdf;
+  float aliasPdf;
 };

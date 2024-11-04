@@ -3,7 +3,8 @@
 #include "glm/gtx/euler_angles.hpp"
 #include "sceneGraph.h"
 #include <filesystem>
-
+#include "Detex/detex.h"
+#define M_PI       3.14159265358979323846 
 namespace MTX {
 void SceneLoader::destroy() {}
 
@@ -12,10 +13,6 @@ Mesh SceneLoader::convertAIMesh(aiMesh* mesh) {
   mtxMesh.modelIdx = m_modelOffset;
   bool hasTexCoords = mesh->HasTextureCoords(0);
   bool hasTagent = mesh->HasTangentsAndBitangents();
-  // std::vector<float> srcVertices;
-  // std::vector<u32>   srcIndices;
-  // std::vector<Vertex> vertices;
-  // vertices.reserve(mesh->mNumVertices);
   mtxMesh.vertexOffset = m_sceneVertices.size();
   mtxMesh.indexOffset = m_sceneIndices.size();
   for (int i = 0; i < mesh->mNumVertices; ++i) {
@@ -243,6 +240,85 @@ std::shared_ptr<SceneGraph> SceneLoader::loadScene(std::string path) {
   return m_sceneGraph;
 }
 
+inline float luminance(const uint8_t* color){
+  return float(color[0]/255.0) * 0.2126f + float(color[1]/255.0) * 0.7512f + float(color[2]/255.0) * 0.0722f;
+}
+
+float buildAliasmap(const std::vector<float>& data,std::vector<EnvAccel>& accel){
+  auto size = static_cast<uint32_t>(data.size());
+  float sum = std::accumulate(data.begin(),data.end(),0.0f);
+  auto fSize =  static_cast<float>(size);
+  float inverseAverage = fSize/sum;
+  for(uint32_t i = 0;i<size;++i){
+    accel[i].q = data[i]*inverseAverage;
+    accel[i].alias = i;
+  }
+  std::vector<uint32_t> partitionTable(size);
+  uint32_t s = 0u;
+  uint32_t large = size;
+  for(uint32_t i = 0;i<size;++i){
+    if(accel[i].q<1.0f)
+    partitionTable[s++] = i;
+    else
+    partitionTable[--large] = i;
+  }
+
+  for(s = 0;s<large&&large<size;++s){
+    const uint32_t smallEnergyIndex = partitionTable[s];
+    const uint32_t highEnergyIndex = partitionTable[large];
+    accel[smallEnergyIndex].alias = highEnergyIndex;
+    const float differenceWithAverage = 1.0f-accel[smallEnergyIndex].q;
+    accel[highEnergyIndex].q -=differenceWithAverage;
+    if(accel[highEnergyIndex].q<1.0f){
+      large++;
+    }
+  }
+  return sum;
+}
+
+std::vector<EnvAccel> createEnvironmentAccel(uint8_t* pixels,uint32_t imageWidth,uint32_t imageHeight) {
+  const uint32_t rx = imageWidth;
+  const uint32_t ry = imageHeight;
+  std::vector<EnvAccel> envAccel(rx*ry);
+  std::vector<float> importanceData(rx*ry);
+  float cosTheta0 = 1.0f;
+  const float stepPhi = float(2.0*M_PI)/float(rx);
+  const float stepTheta = float(M_PI)/float(ry);
+  double total = 0;
+  for(uint32_t y = 0;y<ry;++y){
+    const float theta1 = float(y+1)*stepTheta; // 每个像素在y轴所映射的角度
+    const float cosTheta1 = std::cos(theta1);// 该角度的余弦
+    /*
+    下面的代码计算的是立体角,可以理解为单位球面上一个极小的可微矩形区域占整个球面半径平方的比值(但也不能单纯理解为面积,因为具体是用
+    这些角度所对应的余弦值在进行计算).这个小矩形的宽很好理解,就是一圈360度被HDR贴图的宽度像素个数所均分,而高则是y轴映射角度所对应的余弦值的变
+    化量,这里你可以看到cosTheat0初值为1.0,而后不断被赋予cosTheta1的值,相当于每一行像素的y轴映射角度余弦和前一行像素的y轴映射角度余弦计算差值
+    数学推导看:https://juejin.cn/post/7141771746562015246
+    */
+    const float area = (cosTheta0-cosTheta1)*stepPhi; // 立体角
+    cosTheta0 = cosTheta1;
+    for(uint32_t x = 0;x<rx;++x){
+      const uint32_t idx  = y*rx+x;
+      const uint32_t idx4 = idx*4;
+      float cieLuminance = luminance(&pixels[idx4]);
+      importanceData[idx] = area* std::max(float(pixels[idx4]/255.0), std::max(float(pixels[idx4 + 1]/255.0), float(pixels[idx4 + 2]/255.0)));
+      total += cieLuminance;
+    }
+  }
+  //到这就遍历完了,然后求平均亮度
+  float average = static_cast<float>(total)/static_cast<float>(rx*ry);
+  float integral = buildAliasmap(importanceData,envAccel);
+  const float invEnvIntegral = 1.0f/integral;
+  for(uint32_t i = 0;i<rx*ry;++i){
+    const uint32_t idx4 = i*4;
+    envAccel[i].pdf = std::max(pixels[idx4]/255.0,std::max(pixels[idx4+1]/255.0,pixels[idx4+2]/255.0))*invEnvIntegral;
+  }
+  for(uint32_t i = 0;i<rx*ry;++i){
+    const uint32_t aliasIdx = envAccel[i].alias;
+    envAccel[i].aliasPdf = envAccel[aliasIdx].pdf;
+  }
+  return envAccel;
+}
+
 void SceneLoader::addEnvTexture(std::string path) {
   if (path.empty() || !(std::filesystem::exists(path))) {
     MTX_WARN("Invalid ENV texture, check file path again!!")
@@ -258,6 +334,18 @@ void SceneLoader::addEnvTexture(std::string path) {
   texAllocInfo._sourceData = &utilTex;
   auto envTex = m_interface->allocateTexture(texAllocInfo);
   m_envTextures.push_back(envTex);
+
+  // precalculat env map
+  std::vector<EnvAccel> accel = createEnvironmentAccel(((detexTexture**)(utilTex.mips))[0]->data, utilTex.GetWidth(), utilTex.GetHeight());
+  MtxBufferAllocInfo bufferInfo{};
+  bufferInfo._data = accel.data();
+  bufferInfo._memLocation = nri::MemoryLocation::DEVICE;
+  bufferInfo._name = "envPdfMap";
+  bufferInfo._desc.size = sizeof(EnvAccel)*accel.size();
+  bufferInfo._desc.usageMask = nri::BufferUsageBits::SHADER_RESOURCE_STORAGE;
+  bufferInfo._desc.structureStride = sizeof(EnvAccel);
+  auto envPdfBuffer = m_interface->allocateBuffer(bufferInfo);
+  m_envPdfBuffers.push_back(envPdfBuffer);
 }
 
 }// namespace MTX

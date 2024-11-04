@@ -7,6 +7,7 @@
 
 namespace MTX {
 struct SceneLoader;
+struct ShaderLoader;
 class MTXRenderer : public SampleBase {
  public:
   MTXRenderer() {}
@@ -28,7 +29,7 @@ class MTXRenderer : public SampleBase {
   void updateDescriptorSets();
   void createTLAS();
   void createBLAS();
-  void createSBT();
+  void createSBT(std::shared_ptr<MtxPipeline> pipelinePtr,ShaderLoader& shaderLoader);
 
   void updateCamera(float deltaTime);
   void frameResize();
@@ -74,6 +75,7 @@ class MTXRenderer : public SampleBase {
   uint64_t m_shaderGroupIdentifierSize = 0;
   uint64_t m_missShaderOffset = 0;
   uint64_t m_hitShaderGroupOffset = 0;
+  std::vector<std::vector<int>> m_shaderTypeCount;
   uint32_t m_threadNum = 12;
   uint32_t m_maxBounce = 6;
 };

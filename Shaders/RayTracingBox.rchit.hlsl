@@ -10,7 +10,61 @@ struct VisibilityContribution {
   bool visible;    // true if in front of the face and should shoot shadow ray
 };
 
-VisibilityContribution DirectLight(in Ray r, in State state) {
+float powerHeuristic(float a, float b)
+//-----------------------------------------------------------------------
+{
+  float t = a * a;
+  return t / (b * b + t);
+}
+
+float3 Environment_sample(Texture2D<float4> envMap,in float3 randVal,out float3 to_light,out float pdf){
+  float3 xi = randVal;
+  //HLSL buildin function to get the Texture2D size
+  uint mipmapLevel,width,height;
+  envMap.GetDimensions(width,height);
+  const uint size = width*height;
+  const uint idx = min(uint(xi.x*float(size)),size-1);
+  EnvAccel sample_data = EnvPdfBuffer[idx];
+  uint env_idx;
+  if(xi.y<sample_data.q){
+    env_idx = idx;
+    xi.y/=sample_data.q;
+    pdf = sample_data.pdf;
+  }else{
+    env_idx = sample_data.alias;
+    xi.y = (xi.y-sample_data.q)/(1.0f-sample_data.q);
+    pdf = sample_data.aliasPdf;
+  }
+
+  const uint px = env_idx%width;
+  uint py = env_idx/width;
+
+  const float u = float(px+xi.y)/float(width);
+  const float phi = u*(2.0f*M_PI) - M_PI;
+  float sin_phi = sin(phi);
+  float cos_phi = cos(phi);
+
+  const float step_theta = M_PI/float(height);
+  const float theta0     = float(py) * step_theta;
+  const float cos_theta  = cos(theta0) * (1.0f - xi.z) + cos(theta0 + step_theta) * xi.z;
+  const float theta      = acos(cos_theta);
+  const float sin_theta  = sin(theta);
+  const float v          = theta * M_1_OVER_PI;
+
+  to_light = float3(cos_phi*sin_theta,cos_theta,sin_phi*sin_theta);
+
+  return envMap.SampleLevel(Sampler,float2(u,v),0.0).xyz;
+}
+
+float4 EnvSample(inout float3 radiance,inout RayRayloadType payLoad){
+  float3 lightDir=float3(0.0,1.0,0.0);
+  float pdf;
+  float3 randVal = float3(rand(payLoad.seed),rand(payLoad.seed),rand(payLoad.seed));
+  radiance  = Environment_sample(envTextures[0],randVal,lightDir,pdf);
+  return float4(lightDir,pdf);
+}
+
+VisibilityContribution DirectLight(in Ray r, in State state,inout RayRayloadType payLoad) {
   float3 Li = float3(0.0, 0.0, 0.0);
   float lightPdf;
   float3 lightContrib;
@@ -23,11 +77,21 @@ VisibilityContribution DirectLight(in Ray r, in State state) {
   contrib.visible = false;
 
   // sample Env
-
-  float4 dirPdf; // = EnvSample(lightContrib);
+  float4 dirPdf = EnvSample(lightContrib,payLoad);
   lightDir = dirPdf.xyz;
   lightPdf = dirPdf.w;
-
+  if(dot(lightDir,state.ffnormal)>0.0){
+    {
+      BsdfSampleRec bsdfSampleRec={float3(0.0,0.0,0.0),float3(0.0,0.0,0.0),0.0};
+      bsdfSampleRec.f = DisneyEval(state,-r.direction,state.ffnormal,lightDir,bsdfSampleRec.pdf);
+      float misWeight=  max(0.0,powerHeuristic(lightPdf,bsdfSampleRec.pdf));
+      Li += misWeight*bsdfSampleRec.f * abs(dot(lightDir,state.ffnormal))*lightContrib/lightPdf;
+    }
+    contrib.visible = true;
+    contrib.lightDir = lightDir;
+    contrib.lightDist = lightDist;
+    contrib.radiance = Li;
+  }
   return contrib;
 }
 
@@ -98,7 +162,7 @@ VisibilityContribution DirectLight(in Ray r, in State state) {
   float3 normal = normalize(vertNormal);
   if (mat.textureIndices[3] > -1) {
     Texture2D normalTexture = sceneTextures[mat.textureIndices[3]];
-    float3 tagNormal = normalTexture.SampleLevel(Sampler, uvCoord, 0.0).xyz;
+    float3 tagNormal = normalTexture.SampleLevel(Sampler, uvCoord, 0.0).xyz*2.0-1.0;
     normal = normalMap(vertNormal, tagNormal);
   }
 
@@ -153,6 +217,11 @@ VisibilityContribution DirectLight(in Ray r, in State state) {
   // add emissive light
   payload.directLight = float4(emissive, 1.0);
 
+  // direct light sampling
+  Ray r;
+  r.origin = payload.nextRayOrigin;
+  r.direction = payload.nextRayDirection;
+  VisibilityContribution vcontrib = DirectLight(r,state,payload);
   // sampleEnv
   BsdfSampleRec bsdfSampleRec;
   bsdfSampleRec.L = float3(0.0, 0.0, 0.0);
@@ -175,6 +244,21 @@ VisibilityContribution DirectLight(in Ray r, in State state) {
   payload.nextRayOrigin = OffsetRay(
       vertPosition, dot(bsdfSampleRec.L, state.ffnormal) > 0 ? state.ffnormal
                                                              : -state.ffnormal);
-  // payload.directLight = float4(state.ffnormal, 1.0f);
-  // payload.level = 100;
+  if(vcontrib.visible == true){
+    // float3 shadowRayDirection = vcontrib.lightDir;
+    float3 shadowRayDirection = payload.nextRayDirection;
+    float3 shadowRayOrigin = payload.nextRayOrigin;
+    RayDesc rayDesc;
+    rayDesc.Origin = shadowRayOrigin;
+    rayDesc.Direction = shadowRayDirection;
+    rayDesc.TMin = 0.0001;
+    rayDesc.TMax = 100000;
+
+    uint rayFlags = RAY_FLAG_FORCE_OPAQUE|RAY_FLAG_SKIP_CLOSEST_HIT_SHADER|RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH;
+    EnvPayload shadowPLoad;
+    TraceRay(topLevelAS,rayFlags, 0xff,0,1,1,rayDesc,shadowPLoad);
+    if(!shadowPLoad.isHit){
+      payload.directLight.xyz +=vcontrib.radiance;
+    }
+  }
 }
