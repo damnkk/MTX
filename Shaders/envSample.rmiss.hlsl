@@ -6,4 +6,4 @@
 // NRI_RESOURCE(StructuredBuffer<CameraUniform>, cameraUniform, t, 2, 0);
 
 [shader("miss")] void envMiss(inout EnvPayload payload
-                           : SV_RayPayload) { payload.isHit = true; }
+                           : SV_RayPayload) { payload.isHit = false; }

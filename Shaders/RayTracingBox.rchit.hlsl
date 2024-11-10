@@ -76,14 +76,14 @@ VisibilityContribution DirectLight(in Ray r, in State state,inout RayRayloadType
   contrib.radiance = float3(0.0, 0.0, 0.0);
   contrib.visible = false;
 
-  bool usePointLight = false;
+  bool usePointLight = true;
   if(usePointLight){
     isLight = true;
     //lightInit
     Light tempLight;
-    tempLight.position = float3(20.0,100.0,0.0);
-    tempLight.direction = float3(-1.0,-10.0,-1.0);
-    tempLight.color = float3(10.0,10.0,10.0);
+    tempLight.position = float3(0.0, .0, 10.0);
+    tempLight.direction =float3(0.0, 1.0, -.0f);
+    tempLight.color = float3(5.0,5.0,5.0);
     tempLight.type = LightType_Point;
     float3 pointToLight = -tempLight.direction;
     float rangeAttenuation = 1.0f;
@@ -91,7 +91,6 @@ VisibilityContribution DirectLight(in Ray r, in State state,inout RayRayloadType
 
     if(tempLight.type !=LightType_Directional){
       pointToLight = tempLight.position-state.position;
-      
     }
     lightDist = length(pointToLight);
     if(tempLight.type != LightType_Directional){

@@ -137,7 +137,7 @@ void MTXRenderer::initCamera() {
   desc.aspectRatio = float(GetWindowResolution().x) / float(GetWindowResolution().y);
   desc.nearZ = 0.1f;
   m_cameras.emplace_back();
-  m_cameras.front().Initialize(float3(0.0, 0.0, 0.0), float3(0.0, -1.0, 0.0f));
+  m_cameras.front().Initialize(float3(0.0, .0, 10.0), float3(0.0, 1.0, -.0f));
   MtxBufferAllocInfo camUnifoInfo{};
   camUnifoInfo._name = "cameraUniform";
   camUnifoInfo._desc.size = sizeof(CameraUniform);
@@ -706,7 +706,6 @@ void MTXRenderer::createSBT(std::shared_ptr<MtxPipeline> pipelinePtr,ShaderLoade
 
   m_shaderGroupIdentifierSize = identifierSize;
   m_missShaderOffset = helper::Align(identifierSize, tableAlignment);
-  int test = int(nri::StageBits::MISS_SHADER)>>12;
   m_hitShaderGroupOffset = helper::Align(m_missShaderOffset + identifierSize*shaderLoader.getShaderTypeNum()[int(nri::StageBits::MISS_SHADER)>>12], tableAlignment);
   const uint64_t SBTSize = helper::Align(m_hitShaderGroupOffset + identifierSize*shaderLoader.getShaderTypeNum()[int(nri::StageBits::CLOSEST_HIT_SHADER)>>12], tableAlignment);
 
