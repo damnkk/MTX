@@ -141,3 +141,16 @@ struct EnvAccel{
   float pdf;
   float aliasPdf;
 };
+
+const int LightType_Directional = 0;
+const int LightType_Point = 1;
+const int LightType_Spot = 2;
+
+struct Light{
+  float3 direction; 
+  float3 color;
+  float3 position;
+  float range;
+  float intensity;
+  int type;
+};

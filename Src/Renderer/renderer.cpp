@@ -21,8 +21,8 @@ MTXRenderer::~MTXRenderer() {
   m_interface.DestroyDescriptorPool(*m_descriptorPool);
   m_interface.DestroyDescriptor(*m_sampler);
   m_interface.DestroyDescriptor(*m_rayTracingSampleView);
+  m_interface.DestroyStreamer(*m_streamer);
   m_interface.destroy();
-
   DestroyUI(m_interface);
   nri::nriDestroyDevice(m_interface.getDevice());
   MTX_INFO("Renderering closed successfully")
@@ -53,6 +53,12 @@ bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
                                  (nri::StreamerInterface*) (&m_interface)));
   MTX_CHECK(nri::nriGetInterface(m_interface.getDevice(), NRI_INTERFACE(nri::SwapChainInterface),
                                  (nri::SwapChainInterface*) (&m_interface)));
+  nri::StreamerDesc streamerDesc{};
+  streamerDesc.dynamicBufferMemoryLocation = nri::MemoryLocation::HOST_UPLOAD;
+  streamerDesc.dynamicBufferUsageBits = nri::BufferUsageBits::VERTEX_BUFFER|nri::BufferUsageBits::INDEX_BUFFER;
+  streamerDesc.constantBufferMemoryLocation = nri::MemoryLocation::HOST_UPLOAD;
+  streamerDesc.frameInFlightNum = BUFFERED_FRAME_MAX_NUM;
+  MTX_CHECK(m_interface.CreateStreamer(m_interface.getDevice(),streamerDesc,m_streamer));
 
   MTX_CHECK(m_interface.GetCommandQueue(m_interface.getDevice(), nri::CommandQueueType::GRAPHICS,
                                         m_interface._graphicQueue));
@@ -84,7 +90,7 @@ bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
   m_sceneLoader->addEnvTexture("./Asset/hdrTex/rosendal_plains_2_2k.hdr");
   // m_SceneFile = "./Asset/models/DamagedHelmet/DamagedHelmet.gltf";
   // m_sceneLoader->loadScene(m_SceneFile);
-  m_SceneFile = "./Asset/models/Camera/Camera_01_2k.gltf";
+  m_SceneFile = "./Asset/models/ShaderBalls/ShaderBalls.gltf";
   m_sceneLoader->loadScene(m_SceneFile);
   createRayTracingPipeline();
   createPostProcessPipeline();
@@ -93,6 +99,7 @@ bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
   createBLAS();
   createTLAS();
   updateDescriptorSets();
+  m_windowManager.init(this);
   MTX_INFO("----MTXRenderer initialized successfully-----")
   return InitUI(m_interface, m_interface, m_interface.getDevice(), swpFormat);
 }
@@ -657,7 +664,9 @@ void MTXRenderer::createTLAS() {
         m_interface.GetAccelerationStructureHandle(*(m_blas[mesh.second]->acc));
     instance.instanceId = mesh.second;
     glm::mat4 globalTrans = sceneGraph->getGlobalTransformsFromIdx(mesh.first);
-    toTransformMatrixKHR(globalTrans, instance.transform);
+    glm::mat4 rotateMat = glm::mat4(1.0f);
+    rotateMat = glm::rotate(rotateMat, glm::radians(90.0f), glm::vec3(1.0f, 0.0f, 0.0f))  ;
+    toTransformMatrixKHR(rotateMat*globalTrans, instance.transform);
     instance.mask = 0xff;
   }
   MtxBufferAllocInfo allocInfo{};
@@ -762,6 +771,10 @@ void MTXRenderer::updateCamera(float deltaTime) {
 
 void MTXRenderer::PrepareFrame(uint32_t frameIndex) {
   updateCamera(m_Timer.GetFrameTime());
+  BeginUI();
+   m_windowManager.onGUI();
+   EndUI(m_interface, *m_streamer);
+  m_interface.CopyStreamerUpdateRequests(*m_streamer);
 }
 
 void MTXRenderer::RenderFrame(uint32_t frameIndex) {
@@ -853,6 +866,7 @@ void MTXRenderer::RenderFrame(uint32_t frameIndex) {
         m_interface.CmdDraw(cmdBuf,{3,1,0,0});
       }
     }
+    RenderUI(m_interface,m_interface, *m_streamer,cmdBuf,true,false);
     m_interface.CmdEndRendering(cmdBuf);
 
     textureTransitions[0].before = textureTransitions[0].after;

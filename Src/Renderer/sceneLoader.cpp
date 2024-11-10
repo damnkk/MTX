@@ -3,6 +3,7 @@
 #include "glm/gtx/euler_angles.hpp"
 #include "sceneGraph.h"
 #include <filesystem>
+#include <stb_image.h>
 #include "Detex/detex.h"
 #define M_PI       3.14159265358979323846 
 namespace MTX {

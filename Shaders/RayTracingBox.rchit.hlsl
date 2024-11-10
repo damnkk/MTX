@@ -76,10 +76,43 @@ VisibilityContribution DirectLight(in Ray r, in State state,inout RayRayloadType
   contrib.radiance = float3(0.0, 0.0, 0.0);
   contrib.visible = false;
 
-  // sample Env
-  float4 dirPdf = EnvSample(lightContrib,payLoad);
-  lightDir = dirPdf.xyz;
-  lightPdf = dirPdf.w;
+  bool usePointLight = false;
+  if(usePointLight){
+    isLight = true;
+    //lightInit
+    Light tempLight;
+    tempLight.position = float3(20.0,100.0,0.0);
+    tempLight.direction = float3(-1.0,-10.0,-1.0);
+    tempLight.color = float3(10.0,10.0,10.0);
+    tempLight.type = LightType_Point;
+    float3 pointToLight = -tempLight.direction;
+    float rangeAttenuation = 1.0f;
+    float spotAttenuation = 1.0f;
+
+    if(tempLight.type !=LightType_Directional){
+      pointToLight = tempLight.position-state.position;
+      
+    }
+    lightDist = length(pointToLight);
+    if(tempLight.type != LightType_Directional){
+      rangeAttenuation = 1.0;
+    }
+    if(tempLight.type == LightType_Spot){
+      spotAttenuation = 1.0;
+    }
+
+    float3 intensity = rangeAttenuation*spotAttenuation*tempLight.color;
+    lightContrib = intensity;
+    lightDir = normalize(pointToLight);
+    lightPdf = 1.0;
+
+  }else{
+    //sample Env
+    float4 dirPdf = EnvSample(lightContrib,payLoad);
+    lightDir = dirPdf.xyz;
+    lightPdf = dirPdf.w;
+  }
+
   if(dot(lightDir,state.ffnormal)>0.0){
     {
       BsdfSampleRec bsdfSampleRec={float3(0.0,0.0,0.0),float3(0.0,0.0,0.0),0.0};
@@ -89,6 +122,7 @@ VisibilityContribution DirectLight(in Ray r, in State state,inout RayRayloadType
     }
     contrib.visible = true;
     contrib.lightDir = lightDir;
+    
     contrib.lightDist = lightDist;
     contrib.radiance = Li;
   }
@@ -198,7 +232,7 @@ VisibilityContribution DirectLight(in Ray r, in State state,inout RayRayloadType
   state.mat.roughness = max(metallicRoughness.y, 0.001);
   // state.mat.roughness = 0.001;
   state.mat.metallic = max(metallicRoughness.z, 0.001);
-  // state.mat.metallic = 0.00001;
+  // state.mat.metallic = 1.0;
   state.mat.transmission = mat.intensity.z;
   state.mat.transmission = 0.0;
   state.mat.ior = 1.33;
@@ -222,6 +256,14 @@ VisibilityContribution DirectLight(in Ray r, in State state,inout RayRayloadType
   r.origin = payload.nextRayOrigin;
   r.direction = payload.nextRayDirection;
   VisibilityContribution vcontrib = DirectLight(r,state,payload);
+
+
+  // payload.directLight = float4(metallicRoughness.y,metallicRoughness.y,metallicRoughness.y,1.0);
+  // payload.level = 100;
+  // return;
+
+
+
   // sampleEnv
   BsdfSampleRec bsdfSampleRec;
   bsdfSampleRec.L = float3(0.0, 0.0, 0.0);
@@ -245,8 +287,8 @@ VisibilityContribution DirectLight(in Ray r, in State state,inout RayRayloadType
       vertPosition, dot(bsdfSampleRec.L, state.ffnormal) > 0 ? state.ffnormal
                                                              : -state.ffnormal);
   if(vcontrib.visible == true){
-    // float3 shadowRayDirection = vcontrib.lightDir;
-    float3 shadowRayDirection = payload.nextRayDirection;
+    float3 shadowRayDirection = vcontrib.lightDir;
+    // float3 shadowRayDirection = payload.nextRayDirection;
     float3 shadowRayOrigin = payload.nextRayOrigin;
     RayDesc rayDesc;
     rayDesc.Origin = shadowRayOrigin;

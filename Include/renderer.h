@@ -4,7 +4,7 @@
 #include "mtxCamera.h"
 #include "resourcePool.h"
 #include <NRIFramework.h>
-
+#include <windowManager/winManager.h>
 namespace MTX {
 struct SceneLoader;
 struct ShaderLoader;
@@ -33,6 +33,10 @@ class MTXRenderer : public SampleBase {
 
   void updateCamera(float deltaTime);
   void frameResize();
+  //member getters and setters
+public:
+  nri::Streamer* getStreamer(){return m_streamer;}
+  MTXInterface* getInterface(){return &m_interface;}
 
  private:
   MTXInterface                                   m_interface = {};
@@ -58,6 +62,8 @@ class MTXRenderer : public SampleBase {
   for multi-camera systems, you can not udpate camera state by using this function.
   */
   std::vector<MtxCamera> m_cameras;
+
+  WindowManager m_windowManager;
   struct MtxRayTracingPushConstant {
     uint32_t accumFrameCount = 0;
     uint32_t maxSampleCount = INT_MAX;
