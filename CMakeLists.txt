@@ -13,6 +13,13 @@ add_definitions(-DBUILD_SHARED_LIBS=OFF -DASSIMP_WARNINGS_AS_ERRORS=OFF )
 set(NRIF_SHADERS_PATH ${SHADER_OUTPUT_PATH} CACHE STRING "")
 add_subdirectory(External/NRIFramework)
 
+# External/NRD
+set (NRD_DXC_CUSTOM_PATH "${DXC_CUSTOM_PATH}/NRD" CACHE STRING "")
+set (NRD_SHADERS_PATH "${SHADER_OUTPUT_PATH}" CACHE STRING "")
+set (NRD_NORMAL_ENCODING "2" CACHE STRING "")
+set (NRD_ROUGHNESS_ENCODING "1" CACHE STRING "")
+add_subdirectory(External/NRD)
+
 file (GLOB_RECURSE SHADERS "Shaders/*.hlsl" "Shaders/*.hlsli")
 message(${SHADERS})
 set_source_files_properties (${SHADERS} PROPERTIES VS_TOOL_OVERRIDE "None")
@@ -27,6 +34,7 @@ add_custom_target (${PROJECT_NAME}_Shaders ALL
                 -I "External"
                 -I "External/NRIFramework/External"
                 -I "External/NRIFramework/External/NRI/Include"
+                -I "External/NRD/External"
                 -D COMPILER_DXC
             COMMAND ShaderMake --useAPI
                 --binary --flatten --stripReflection --compiler "${DXC_SPIRV_PATH}"
@@ -38,6 +46,7 @@ add_custom_target (${PROJECT_NAME}_Shaders ALL
                 -I "External"
                 -I "External/NRIFramework/External"
                 -I "External/NRIFramework/External/NRI/Include"
+                -I "External/NRD/External"
                 -D COMPILER_DXC
                 -D VULKAN
   
@@ -57,7 +66,7 @@ file(GLOB RENDERER_SOURCE
 )
 message(${RENDERER_SOURCE})
 add_executable(${PROJECT_NAME} main.cpp ${RENDERER_SOURCE})
-target_link_libraries(${PROJECT_NAME} PUBLIC NRIFramework NRI assimp)
+target_link_libraries(${PROJECT_NAME} PUBLIC NRIFramework NRI NRD assimp)
 target_include_directories(${PROJECT_NAME} PUBLIC 
 ${CMAKE_SOURCE_DIR}/External/NRIFramework/Include
 ${CMAKE_SOURCE_DIR}/External/NRIFramework/External/

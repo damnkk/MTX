@@ -17,3 +17,6 @@
 [submodule "External/NRIFramework"]
 	path = External/NRIFramework
 	url = https://github.com/NVIDIAGameWorks/NRIFramework.git
+[submodule "External/NRD"]
+	path = External/NRD
+	url = https://github.com/NVIDIAGameWorks/RayTracingDenoiser.git
