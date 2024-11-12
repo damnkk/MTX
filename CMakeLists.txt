@@ -24,18 +24,20 @@ file (GLOB_RECURSE SHADERS "Shaders/*.hlsl" "Shaders/*.hlsli")
 message(${SHADERS})
 set_source_files_properties (${SHADERS} PROPERTIES VS_TOOL_OVERRIDE "None")
 add_custom_target (${PROJECT_NAME}_Shaders ALL
-            COMMAND ShaderMake --useAPI
-                --binary --flatten --stripReflection --compiler "${DXC_PATH}"
-                --sourceDir "Shaders"
-                -p DXIL
-               -c Shaders.cfg
-                -o "${SHADER_OUTPUT_PATH}"
-                -I "Shaders"
-                -I "External"
-                -I "External/NRIFramework/External"
-                -I "External/NRIFramework/External/NRI/Include"
-                -I "External/NRD/External"
-                -D COMPILER_DXC
+        ##disable dx shader compiler for now
+            # COMMAND ShaderMake --useAPI
+            #     --binary --flatten --stripReflection --compiler "${DXC_PATH}"
+            #     --sourceDir "Shaders"
+            #     -p DXIL
+            #    -c Shaders.cfg
+            #     -o "${SHADER_OUTPUT_PATH}"
+            #     -I "Shaders"
+            #     -I "External"
+            #     -I "External/NRIFramework/External"
+            #     -I "External/NRIFramework/External/NRI/Include"
+            #     -I "External/NRIFramework/External/MathLib"
+            #     -I "External/NRD/External"
+            #     -D COMPILER_DXC
             COMMAND ShaderMake --useAPI
                 --binary --flatten --stripReflection --compiler "${DXC_SPIRV_PATH}"
                 --sourceDir "Shaders"
@@ -46,6 +48,7 @@ add_custom_target (${PROJECT_NAME}_Shaders ALL
                 -I "External"
                 -I "External/NRIFramework/External"
                 -I "External/NRIFramework/External/NRI/Include"
+                -I "External/NRIFramework/External/MathLib"
                 -I "External/NRD/External"
                 -D COMPILER_DXC
                 -D VULKAN
@@ -64,13 +67,16 @@ file(GLOB RENDERER_SOURCE
 ./Src/*.cpp
 ./Src/*/*.cpp
 )
-message(${RENDERER_SOURCE})
-add_executable(${PROJECT_NAME} main.cpp ${RENDERER_SOURCE})
+file(GLOB NRD_INTERFACE ./External/NRD/integration/*.h ./External/NRD/integration/*.hpp)
+message(${NRD_INTERFACE})
+add_executable(${PROJECT_NAME} main.cpp ${RENDERER_SOURCE} ${NRD_INTERFACE})
 target_link_libraries(${PROJECT_NAME} PUBLIC NRIFramework NRI NRD assimp)
 target_include_directories(${PROJECT_NAME} PUBLIC 
 ${CMAKE_SOURCE_DIR}/External/NRIFramework/Include
 ${CMAKE_SOURCE_DIR}/External/NRIFramework/External/
 ${CMAKE_SOURCE_DIR}/External/NRIFramework/External/nri/include
+${CMAKE_SOURCE_DIR}/External/NRD/include
+${CMAKE_SOURCE_DIR}/External/NRD/integration
 ${CMAKE_SOURCE_DIR}/External/stduuid/include
 ${CMAKE_SOURCE_DIR}/External/Assimp/include
 ${CMAKE_SOURCE_DIR}/External/spdlog/include

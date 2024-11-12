@@ -1,4 +1,5 @@
 #include "renderer.h"
+#include <denoiser.h>
 #include "log.h"
 #include "mtxUtils.h"
 #include "sceneGraph.h"
@@ -100,6 +101,9 @@ bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
   createTLAS();
   updateDescriptorSets();
   m_windowManager.init(this);
+
+  m_denoiser = std::make_shared<MTXDenoiser>(this);
+  m_denoiser->init();
   MTX_INFO("----MTXRenderer initialized successfully-----")
   return InitUI(m_interface, m_interface, m_interface.getDevice(), swpFormat);
 }
@@ -238,15 +242,15 @@ void MTXRenderer::createRayTracingPipeline() {
                                                {3, rangeDesc4.data(), (uint32_t)rangeDesc4.size()},
                                                {4, rangeDesc5.data(), (uint32_t)rangeDesc5.size()}};
 
-  nri::PushConstantDesc pushConstDesc{0, sizeof(MtxRayTracingPushConstant),
+  nri::RootConstantDesc pushConstDesc{0, sizeof(MtxRayTracingPushConstant),
                                       nri::StageBits::RAY_TRACING_SHADERS};
 
   nri::PipelineLayoutDesc pipelineLayoutDesc = {};
   pipelineLayoutDesc.descriptorSets = descs.data();
   pipelineLayoutDesc.descriptorSetNum = descs.size();
   pipelineLayoutDesc.shaderStages = nri::StageBits::RAY_TRACING_SHADERS;
-  pipelineLayoutDesc.pushConstantNum = 1;
-  pipelineLayoutDesc.pushConstants = &pushConstDesc;
+  pipelineLayoutDesc.rootConstantNum = 1;
+  pipelineLayoutDesc.rootConstants = &pushConstDesc;
   nri::PipelineLayout* layout;
 
   MTX_CHECK(m_interface.CreatePipelineLayout(m_interface.getDevice(), pipelineLayoutDesc, layout));
@@ -858,7 +862,7 @@ void MTXRenderer::RenderFrame(uint32_t frameIndex) {
         m_interface.CmdSetViewports(cmdBuf,&viewport,1);
         m_interface.CmdSetPipelineLayout(cmdBuf,m_postProcessPipeline->getPipelineLayout());
         m_interface.CmdSetPipeline(cmdBuf,m_postProcessPipeline->getPipeline());
-        m_interface.CmdSetConstants(cmdBuf,0,&m_postConstant,sizeof(m_postConstant));
+        m_interface.CmdSetRootConstants(cmdBuf,0,&m_postConstant,sizeof(m_postConstant));
         m_interface.CmdSetDescriptorSet(cmdBuf,0,*m_postDescriptorSets[0],nullptr);
         nri::Rect scissor = {0,0,(nri::Dim_t)m_WindowResolution.x,(nri::Dim_t)m_WindowResolution.y};
         m_interface.CmdSetScissors(cmdBuf,&scissor,1);

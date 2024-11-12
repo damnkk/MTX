@@ -3,6 +3,7 @@
     
     ".\\Shaders",
     ".\\External\\NRIFramework\\External\\NRI\\Include",
-    ".\\External\\NRD\\Shaders\\Include"
+    ".\\External\\NRD\\Shaders\\Include",
+    ".\\External\\NRIFramework\\External\\MathLib"
   ]
 }

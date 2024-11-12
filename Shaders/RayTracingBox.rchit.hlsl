@@ -285,6 +285,7 @@ VisibilityContribution DirectLight(in Ray r, in State state,inout RayRayloadType
   payload.nextRayOrigin = OffsetRay(
       vertPosition, dot(bsdfSampleRec.L, state.ffnormal) > 0 ? state.ffnormal
                                                              : -state.ffnormal);
+  float2 rnd = ImportanceSampling::Cosine::GetRay(float2(1.0,1.0)).xy;
   if(vcontrib.visible == true){
     float3 shadowRayDirection = vcontrib.lightDir;
     // float3 shadowRayDirection = payload.nextRayDirection;

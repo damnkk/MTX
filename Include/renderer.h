@@ -8,6 +8,7 @@
 namespace MTX {
 struct SceneLoader;
 struct ShaderLoader;
+struct MTXDenoiser;
 class MTXRenderer : public SampleBase {
  public:
   MTXRenderer() {}
@@ -64,6 +65,7 @@ public:
   std::vector<MtxCamera> m_cameras;
 
   WindowManager m_windowManager;
+  std::shared_ptr<MTXDenoiser> m_denoiser;
   struct MtxRayTracingPushConstant {
     uint32_t accumFrameCount = 0;
     uint32_t maxSampleCount = INT_MAX;

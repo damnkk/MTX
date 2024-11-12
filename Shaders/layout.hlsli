@@ -1,7 +1,7 @@
 NRI_RESOURCE(RWTexture2D<float4>, outputImage, u, 0, 0);
 NRI_RESOURCE(RaytracingAccelerationStructure, topLevelAS, t, 1, 0);
 NRI_RESOURCE(StructuredBuffer<CameraUniform>, cameraUniform, t, 2, 0);
-NRI_PUSH_CONSTANTS(PushConstant, RTConstant, 0);
+NRI_ROOT_CONSTANTS(PushConstant, RTConstant, 0,0);
 NRI_RESOURCE(StructuredBuffer<MatUniform>, matUniformBuffer, t, 0, 1);
 NRI_RESOURCE(StructuredBuffer<Vertex>, vertexBuffer, t, 1, 1);
 NRI_RESOURCE(StructuredBuffer<uint>, indexBuffer, t, 2, 1);
