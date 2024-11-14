@@ -90,8 +90,10 @@ std::shared_ptr<MtxBuffer> BufferAllocator::allocateBuffer(const MtxBufferAllocI
   //                                                 &(buffer->mem));
   nri::MemoryDesc bufferMemoryDesc = {};
   _gfxInterface->GetBufferMemoryDesc(_gfxInterface->getDevice(),allocInfo._desc,allocInfo._memLocation,bufferMemoryDesc);
-  MTX_CHECK(_gfxInterface->AllocateMemory(_gfxInterface->getDevice(), bufferMemoryDesc.type,
-                                          bufferMemoryDesc.size, buffer->mem));
+  nri::AllocateMemoryDesc desc{};
+  desc.size = allocInfo._desc.size;
+  desc.type = bufferMemoryDesc.type;
+  MTX_CHECK(_gfxInterface->AllocateMemory(_gfxInterface->getDevice(), desc, buffer->mem));
   const nri::BufferMemoryBindingDesc bufferMemoryBindingDesc = {buffer->mem, buffer->buf, 0};
   MTX_CHECK(
       _gfxInterface->BindBufferMemory(_gfxInterface->getDevice(), &bufferMemoryBindingDesc, 1));
@@ -105,7 +107,7 @@ std::shared_ptr<MtxBuffer> BufferAllocator::allocateBuffer(const MtxBufferAllocI
     if (allocInfo._haveAccessStage) {
       uploadDesc.after = allocInfo.getAccessStage();
     } else {
-      uploadDesc.after = {utils::bufferUsageToAccess(allocInfo._desc.usageMask)};
+      uploadDesc.after = {utils::bufferUsageToAccess(allocInfo._desc.usage)};
     }
     _gfxInterface->UploadData(_gfxInterface->getTransferQueue(), nullptr, 0, &uploadDesc, 1);
   };
@@ -145,9 +147,12 @@ AcceStructureAllocator::allocateAcceStructure(const nri::AccelerationStructureDe
   MTX_CHECK(
       _gfxInterface->CreateAccelerationStructure(_gfxInterface->getDevice(), desc, accePtr->acc));
   nri::MemoryDesc memoryDesc = {};
-  _gfxInterface->GetAccelerationStructureMemoryDesc(*(accePtr->acc), memoryDesc);
+  _gfxInterface->GetAccelerationStructureMemoryDesc(_gfxInterface->getDevice(),desc,nri::MemoryLocation::DEVICE, memoryDesc);
   nri::Memory* asMemory = nullptr;
-  _gfxInterface->AllocateMemory(_gfxInterface->getDevice(), memoryDesc.type, memoryDesc.size,
+  nri::AllocateMemoryDesc memAllocDesc{};
+  memAllocDesc.size = memoryDesc.size;
+  memAllocDesc.type = memoryDesc.type;
+  _gfxInterface->AllocateMemory(_gfxInterface->getDevice(),memAllocDesc,
                                 asMemory);
   nri::AccelerationStructureMemoryBindingDesc memBindDesc = {asMemory, accePtr->acc};
   _gfxInterface->BindAccelerationStructureMemory(_gfxInterface->getDevice(), &memBindDesc, 1);

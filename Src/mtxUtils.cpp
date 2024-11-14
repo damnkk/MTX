@@ -12,7 +12,7 @@ nri::AccessBits bufferUsageToAccess(nri::BufferUsageBits usage) {
   if (usage & nri::BufferUsageBits::SHADER_RESOURCE_STORAGE) {
     res |= nri::AccessBits::SHADER_RESOURCE_STORAGE;
   }
-  if (usage & nri::BufferUsageBits::ACCELERATION_STRUCTURE_BUILD_READ) {
+  if (usage & nri::BufferUsageBits::ACCELERATION_STRUCTURE_BUILD_INPUT) {
     res |= nri::AccessBits::ACCELERATION_STRUCTURE_READ;
   }
   return res;

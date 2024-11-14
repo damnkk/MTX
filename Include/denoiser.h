@@ -2,16 +2,18 @@
 #define __DENOISER_H__
 #include<NRIFramework.h>
 #include<NRD.h>
-#include<NRDIntegration.hpp>
 #include <memory>
+#include "NRDIntegration.h"
+
 namespace MTX{
 class MTXRenderer;
 class MTXTexture;
 
 class MTXDenoiser{
 public:
-    MTXDenoiser(MTXRenderer* renderer):m_renderer(renderer){};
+    MTXDenoiser(MTXRenderer* renderer);
     void init();
+    void destroy();
     enum DenoiseRT{
         MV,
         VIEWZ,
@@ -20,7 +22,7 @@ public:
 
 private:
     MTXRenderer* m_renderer;
-    nrd::Integration m_integration;
+    std::unique_ptr<nrd::Integration> m_integration;
     std::vector<std::shared_ptr<MTXTexture>> m_userPool;
 };
 

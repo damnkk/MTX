@@ -51,7 +51,7 @@ struct MtxTexture : public Object {
   nri::TextureType      type() { return desc.type; }
   nri::Dim_t            depth() { return desc.depth; }
   nri::Dim_t            mipNum() { return desc.mipNum; }
-  nri::TextureUsageBits usage() { return desc.usageMask; }
+  nri::TextureUsageBits usage() { return desc.usage; }
   bool                  isValid() { return tex != nullptr; }
 };
 
@@ -91,7 +91,7 @@ struct MtxBuffer : public Object {
   nri::Buffer&         getBuf() { return *buf; }
   nri::Memory&         getMem() { return *mem; }
   uint64_t             size() { return desc.size; }
-  nri::BufferUsageBits usage() { return desc.usageMask; }
+  nri::BufferUsageBits usage() { return desc.usage; }
   bool                 isValid() { return buf != nullptr; }
 };
 

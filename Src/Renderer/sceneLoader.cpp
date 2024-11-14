@@ -139,9 +139,20 @@ Material SceneLoader::convertAIMaterialToDescription(const aiMaterial* aiMat,
   if (aiMat->GetTexture(aiTextureType_DIFFUSE, 0, &texPath) == AI_SUCCESS) {
     std::string diffusePath = basePath + '/' + std::string(texPath.C_Str());
     ::utils::LoadTexture(diffusePath, utilTex);
-    texAllocInfo._desc =
-        nri::Texture2D(utilTex.GetFormat(), utilTex.GetWidth(), utilTex.GetHeight(),
-                       utilTex.GetMipNum(), 1, nri::TextureUsageBits::SHADER_RESOURCE);
+
+    texAllocInfo._desc={
+      .type = nri::TextureType::TEXTURE_2D,
+      .usage = nri::TextureUsageBits::SHADER_RESOURCE,
+      .format = utilTex.GetFormat(),
+      .width = utilTex.GetWidth(),
+      .height = utilTex.GetHeight(),
+      .depth = utilTex.GetDepth(),
+      .mipNum = utilTex.GetMipNum(),
+      .layerNum = utilTex.layerNum,
+      .sampleNum = 1
+    };
+    // =nri::TextureDesc(utilTex.GetFormat(), utilTex.GetWidth(), utilTex.GetHeight(),
+    //                    utilTex.GetMipNum(), 1, nri::TextureUsageBits::SHADER_RESOURCE);
     texAllocInfo._name = std::string(texPath.C_Str());
     texAllocInfo._sourceData = &utilTex;
     auto diffTex = m_interface->allocateTexture(texAllocInfo);
@@ -151,9 +162,17 @@ Material SceneLoader::convertAIMaterialToDescription(const aiMaterial* aiMat,
   if (aiMat->GetTexture(aiTextureType_EMISSIVE, 0, &texPath) == AI_SUCCESS) {
     std::string emissivePath = basePath + '/' + std::string(texPath.C_Str());
     ::utils::LoadTexture(emissivePath, utilTex);
-    texAllocInfo._desc =
-        nri::Texture2D(utilTex.GetFormat(), utilTex.GetWidth(), utilTex.GetHeight(),
-                       utilTex.GetMipNum(), 1, nri::TextureUsageBits::SHADER_RESOURCE);
+    texAllocInfo._desc ={
+      .type = nri::TextureType::TEXTURE_2D,
+      .usage = nri::TextureUsageBits::SHADER_RESOURCE,
+      .format = utilTex.GetFormat(),
+      .width = utilTex.GetWidth(),
+      .height = utilTex.GetHeight(),
+      .depth = utilTex.GetDepth(),
+      .mipNum = utilTex.GetMipNum(),
+      .layerNum = utilTex.layerNum,
+      .sampleNum = 1
+    };
     texAllocInfo._name = std::string(texPath.C_Str());
     texAllocInfo._sourceData = &utilTex;
     auto diffTex = m_interface->allocateTexture(texAllocInfo);
@@ -163,9 +182,17 @@ Material SceneLoader::convertAIMaterialToDescription(const aiMaterial* aiMat,
   if (aiMat->GetTexture(aiTextureType_DIFFUSE_ROUGHNESS, 0, &texPath) == AI_SUCCESS) {
     std::string mrTex = basePath + '/' + std::string(texPath.C_Str());
     ::utils::LoadTexture(mrTex, utilTex);
-    texAllocInfo._desc =
-        nri::Texture2D(utilTex.GetFormat(), utilTex.GetWidth(), utilTex.GetHeight(),
-                       utilTex.GetMipNum(), 1, nri::TextureUsageBits::SHADER_RESOURCE);
+    texAllocInfo._desc = {
+     .type = nri::TextureType::TEXTURE_2D,
+      .usage = nri::TextureUsageBits::SHADER_RESOURCE,
+      .format = utilTex.GetFormat(),
+      .width = utilTex.GetWidth(),
+      .height = utilTex.GetHeight(),
+      .depth = utilTex.GetDepth(),
+      .mipNum = utilTex.GetMipNum(),
+      .layerNum = utilTex.layerNum,
+      .sampleNum = 1
+    };
     texAllocInfo._name = std::string(texPath.C_Str());
     texAllocInfo._sourceData = &utilTex;
     auto diffTex = m_interface->allocateTexture(texAllocInfo);
@@ -175,9 +202,17 @@ Material SceneLoader::convertAIMaterialToDescription(const aiMaterial* aiMat,
   if (aiMat->GetTexture(aiTextureType_LIGHTMAP, 0, &texPath) == AI_SUCCESS) {
     std::string oaTex = basePath + '/' + std::string(texPath.C_Str());
     ::utils::LoadTexture(oaTex, utilTex);
-    texAllocInfo._desc =
-        nri::Texture2D(utilTex.GetFormat(), utilTex.GetWidth(), utilTex.GetHeight(),
-                       utilTex.GetMipNum(), 1, nri::TextureUsageBits::SHADER_RESOURCE);
+    texAllocInfo._desc ={
+      .type = nri::TextureType::TEXTURE_2D,
+      .usage = nri::TextureUsageBits::SHADER_RESOURCE,
+      .format = utilTex.GetFormat(),
+      .width = utilTex.GetWidth(),
+      .height = utilTex.GetHeight(),
+      .depth = utilTex.GetDepth(),
+      .mipNum = utilTex.GetMipNum(),
+      .layerNum = utilTex.layerNum,
+      .sampleNum = 1
+    };
     texAllocInfo._name = std::string(texPath.C_Str());
     texAllocInfo._sourceData = &utilTex;
     auto diffTex = m_interface->allocateTexture(texAllocInfo);
@@ -187,9 +222,17 @@ Material SceneLoader::convertAIMaterialToDescription(const aiMaterial* aiMat,
   if (aiMat->GetTexture(aiTextureType_NORMALS, 0, &texPath) == AI_SUCCESS) {
     std::string normPath = basePath + '/' + std::string(texPath.C_Str());
     ::utils::LoadTexture(normPath, utilTex);
-    texAllocInfo._desc =
-        nri::Texture2D(utilTex.GetFormat(), utilTex.GetWidth(), utilTex.GetHeight(),
-                       utilTex.GetMipNum(), 1, nri::TextureUsageBits::SHADER_RESOURCE);
+    texAllocInfo._desc ={
+      .type = nri::TextureType::TEXTURE_2D,
+      .usage = nri::TextureUsageBits::SHADER_RESOURCE,
+      .format = utilTex.GetFormat(),
+      .width = utilTex.GetWidth(),
+      .height = utilTex.GetHeight(),
+      .depth = utilTex.GetDepth(),
+      .mipNum = utilTex.GetMipNum(),
+      .layerNum = utilTex.layerNum,
+      .sampleNum = 1
+    };
     texAllocInfo._name = std::string(texPath.C_Str());
     texAllocInfo._sourceData = &utilTex;
     auto diffTex = m_interface->allocateTexture(texAllocInfo);
@@ -329,9 +372,17 @@ void SceneLoader::addEnvTexture(std::string path) {
   ::utils::Texture    utilTex;
   ::utils::LoadTexture(path, utilTex);
   texAllocInfo._name = utilTex.name;
-  texAllocInfo._desc =
-      nri::Texture2D(utilTex.GetFormat(), utilTex.GetWidth(), utilTex.GetHeight(),
-                     utilTex.GetMipNum(), 1, nri::TextureUsageBits::SHADER_RESOURCE);
+  texAllocInfo._desc ={
+    .type = nri::TextureType::TEXTURE_2D,
+      .usage = nri::TextureUsageBits::SHADER_RESOURCE,
+      .format = utilTex.GetFormat(),
+      .width = utilTex.GetWidth(),
+      .height = utilTex.GetHeight(),
+      .depth = utilTex.GetDepth(),
+      .mipNum = utilTex.GetMipNum(),
+      .layerNum = utilTex.layerNum,
+      .sampleNum = 1
+  };
   texAllocInfo._sourceData = &utilTex;
   auto envTex = m_interface->allocateTexture(texAllocInfo);
   m_envTextures.push_back(envTex);
@@ -343,7 +394,7 @@ void SceneLoader::addEnvTexture(std::string path) {
   bufferInfo._memLocation = nri::MemoryLocation::DEVICE;
   bufferInfo._name = "envPdfMap";
   bufferInfo._desc.size = sizeof(EnvAccel)*accel.size();
-  bufferInfo._desc.usageMask = nri::BufferUsageBits::SHADER_RESOURCE_STORAGE;
+  bufferInfo._desc.usage = nri::BufferUsageBits::SHADER_RESOURCE_STORAGE;
   bufferInfo._desc.structureStride = sizeof(EnvAccel);
   auto envPdfBuffer = m_interface->allocateBuffer(bufferInfo);
   m_envPdfBuffers.push_back(envPdfBuffer);

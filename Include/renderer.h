@@ -38,6 +38,7 @@ class MTXRenderer : public SampleBase {
 public:
   nri::Streamer* getStreamer(){return m_streamer;}
   MTXInterface* getInterface(){return &m_interface;}
+  nri::AllocationCallbacks memAllocCallback= {};
 
  private:
   MTXInterface                                   m_interface = {};

@@ -6,12 +6,14 @@ set(CMAKE_CXX_STANDARD 20)
 project(MTX)
 if (MSVC AND NOT DEFINED CMAKE_MSVC_RUNTIME_LIBRARY)
     set (CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    
 endif ()
 #add_definitions(-DNRI_STATIC_LIBRARY)
 add_definitions(-DBUILD_SHARED_LIBS=OFF -DASSIMP_WARNINGS_AS_ERRORS=OFF )
 
 set(NRIF_SHADERS_PATH ${SHADER_OUTPUT_PATH} CACHE STRING "")
 add_subdirectory(External/NRIFramework)
+target_compile_options(NRIFramework PRIVATE /source-charset:utf-8)
 
 # External/NRD
 set (NRD_DXC_CUSTOM_PATH "${DXC_CUSTOM_PATH}/NRD" CACHE STRING "")
@@ -70,6 +72,7 @@ file(GLOB RENDERER_SOURCE
 file(GLOB NRD_INTERFACE ./External/NRD/integration/*.h ./External/NRD/integration/*.hpp)
 message(${NRD_INTERFACE})
 add_executable(${PROJECT_NAME} main.cpp ${RENDERER_SOURCE} ${NRD_INTERFACE})
+target_compile_options(${PROJECT_NAME} PRIVATE /utf-8)
 target_link_libraries(${PROJECT_NAME} PUBLIC NRIFramework NRI NRD assimp)
 target_include_directories(${PROJECT_NAME} PUBLIC 
 ${CMAKE_SOURCE_DIR}/External/NRIFramework/Include
