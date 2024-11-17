@@ -1,9 +1,25 @@
 #ifndef MTXUTILS_H
 #define MTXUTILS_H
 #include "NRIFramework.h"
+#include<Interface.h>
 namespace MTX {
 const uint32_t MTX_MAX_FRAME_COUNT = BUFFERED_FRAME_MAX_NUM;
+struct ShaderLoader{
+  ShaderLoader(MTXInterface* interface) : _interface(interface){}
+  ShaderLoader& addShader(std::string path,const char* introName, ::utils::ShaderCodeStorage& shaderCodeStorage){
 
+    shaderDescs.emplace_back(::utils::LoadShader(_interface->GetDeviceDesc(_interface->getDevice()).graphicsAPI,path,shaderCodeStorage,introName));
+    if((int(shaderDescs.back().stage)|int(nri::StageBits::RAY_TRACING_SHADERS))!=0){
+      shaderTypeNum[int(shaderDescs.back().stage)>>12]+=1;
+    }
+    return *this;
+  }
+  std::vector<nri::ShaderDesc>& getShaderDesc() { return shaderDescs; }
+  std::array<int,6> getShaderTypeNum() { return shaderTypeNum; }
+  std::vector<nri::ShaderDesc> shaderDescs;
+  std::array<int,6> shaderTypeNum={};
+  MTXInterface* _interface;
+};
 struct RtInstanceInfo {
   uint32_t indexOffset = 0;
   uint32_t vertexOffset = 0;

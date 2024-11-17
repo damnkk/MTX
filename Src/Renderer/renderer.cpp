@@ -91,7 +91,7 @@ bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
   m_sceneLoader->addEnvTexture("./Asset/hdrTex/graveyard_pathways_2k.hdr");
   // m_SceneFile = "./Asset/models/DamagedHelmet/DamagedHelmet.gltf";
   // m_sceneLoader->loadScene(m_SceneFile);
-  m_SceneFile = "./Asset/models/MetalRoughSpheres/MetalRoughSpheres.gltf";
+  m_SceneFile = "./Asset/models/ShaderBalls/ShaderBalls.gltf";
   m_sceneLoader->loadScene(m_SceneFile);
   createRayTracingPipeline();
   createPostProcessPipeline();
@@ -177,23 +177,6 @@ void MTXRenderer::createSwapChain(nri::Format& format) {
   }
 }
 
-struct ShaderLoader{
-  ShaderLoader(MTXInterface* interface) : _interface(interface){}
-  ShaderLoader& addShader(std::string path,const char* introName, ::utils::ShaderCodeStorage& shaderCodeStorage){
-    
-    shaderDescs.emplace_back(::utils::LoadShader(_interface->GetDeviceDesc(_interface->getDevice()).graphicsAPI,path,shaderCodeStorage,introName));
-    if((int(shaderDescs.back().stage)|int(nri::StageBits::RAY_TRACING_SHADERS))!=0){
-      shaderTypeNum[int(shaderDescs.back().stage)>>12]+=1;
-    }
-    return *this;
-  }
-  std::vector<nri::ShaderDesc>& getShaderDesc() { return shaderDescs; }
-  std::array<int,6> getShaderTypeNum() { return shaderTypeNum; }
-  std::vector<nri::ShaderDesc> shaderDescs;
-  std::array<int,6> shaderTypeNum={};
-  MTXInterface* _interface;
-};
-
 void MTXRenderer::createRayTracingPipeline() {
   MtxPipelineAllocateInfo     pipelineAllocInfo{};
   nri::RayTracingPipelineDesc pipelineDesc{};
@@ -202,10 +185,9 @@ void MTXRenderer::createRayTracingPipeline() {
       {0, 1, nri::DescriptorType::STORAGE_TEXTURE, nri::StageBits::RAYGEN_SHADER},
       {1, 1, nri::DescriptorType::ACCELERATION_STRUCTURE, nri::StageBits::RAYGEN_SHADER|nri::StageBits::CLOSEST_HIT_SHADER},
       {2, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::RAY_TRACING_SHADERS}
-
   };
   std::vector<nri::DescriptorRangeDesc> rangeDesc2 = {
-      //set1 ---> material uniform/ vertices/ indices/ instance info/textureSampler
+      //set1 ---> material uniform/ vertices/ indices/ instance info/textureSampler/EnvAccelBuffer
       {0, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::RAY_TRACING_SHADERS },
       {1, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER},
       {2, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER},

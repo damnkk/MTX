@@ -41,8 +41,9 @@ public:
   nri::AllocationCallbacks memAllocCallback= {};
 
  private:
+  friend  class MTXDenoiser;
   MTXInterface                                   m_interface = {};
-  nri::SwapChain*                                m_swapChain = nullptr;
+  nri::SwapChain*                                 m_swapChain = nullptr;
   nri::Streamer*                                 m_streamer = nullptr;
   nri::QueryPool*                                m_queryPool = nullptr;
   nri::DescriptorPool*                           m_descriptorPool = nullptr;
