@@ -289,17 +289,8 @@ VisibilityContribution DirectLight(in Ray r, in State state,inout RayRayloadType
     float3 shadowRayDirection = vcontrib.lightDir;
     // float3 shadowRayDirection = payload.nextRayDirection;
     float3 shadowRayOrigin = payload.nextRayOrigin;
-    RayDesc rayDesc;
-    rayDesc.Origin = shadowRayOrigin;
-    rayDesc.Direction = shadowRayDirection;
-    rayDesc.TMin = 0.0001;
-    rayDesc.TMax = 100000;
-
-    uint rayFlags = RAY_FLAG_FORCE_OPAQUE|RAY_FLAG_SKIP_CLOSEST_HIT_SHADER|RAY_FLAG_ACCEPT_FIRST_HIT_AND_END_SEARCH;
-    EnvPayload shadowPLoad;
-    TraceRay(topLevelAS,rayFlags, 0xff,0,1,1,rayDesc,shadowPLoad);
-    if(!shadowPLoad.isHit){
-      payload.directLight.xyz +=vcontrib.radiance;
-    }
+    
+    payload.directLight.xyz +=vcontrib.radiance;
+    
   }
 }

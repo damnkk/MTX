@@ -41,8 +41,7 @@ void WindowManager::init(MTXRenderer* app){
         for(auto& [first,second] : thisWindow->_subWindow){
             auto subWindow = thisWindow->_manager->_subWindows[second];
             if(subWindow&&thisWindow->_manager->_subWindowState[second]==WindowManager::WindowState::SHOWN){
-
-                subWindow->_onGUI(subWindow.get(),{});
+                subWindow->_onGUI(subWindow.get(),{params.front()});
             }else if(!subWindow){
                 std::cerr<<"You may not finished the subWindow definition"<<std::endl;
             }
@@ -50,15 +49,14 @@ void WindowManager::init(MTXRenderer* app){
     });
     // mainWindow1->_onGUI = lambda1;
     // MainWindow1->SubWindow1
-    std::function<void(UIWindow*,std::vector<void*>)> lambdaMain1Sub1 = [](UIWindow* thisWindow,std::vector<void*> params){
-        ImGui::Begin("SubWindow1");
-        ImGui::Text("This is SubWindow1");
-        ImGui::End();
-    };
     mainWindow1->_manager = this;
     mainWindow1->addSubWindow("SubWindow1",[](UIWindow* thisWindow,std::vector<void*> params){
         ImGui::Begin("SubWindow1");
         ImGui::Text("This is SubWindow1");
+        const char* items[] = {"realTime raytracing", "offline raytracing"};
+        int current_item = 1;
+        ImGui::Combo("raytracing mode", reinterpret_cast<int*>(&(((MTXRenderer*)params.front())->m_rtType)),items, IM_ARRAYSIZE(items));
+      
         ImGui::End();
     });
     _mainWindow.push_back(mainWindow1);
@@ -77,7 +75,7 @@ int WindowManager::allocWindow(std::function<void(UIWindow*,std::vector<void*>)>
 
 void WindowManager::onGUI(){
    for(auto& window:_mainWindow){
-    window->_onGUI(window.get(),{});
+    window->_onGUI(window.get(),{_app});
    }
 }
 

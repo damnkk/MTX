@@ -38,7 +38,7 @@ bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
   nri::DeviceCreationDesc deviceCreationDesc = {};
   deviceCreationDesc.graphicsAPI = graphicsAPI;
   deviceCreationDesc.enableGraphicsAPIValidation = false;
-  deviceCreationDesc.enableNRIValidation = false;
+  deviceCreationDesc.enableNRIValidation = true;
   deviceCreationDesc.spirvBindingOffsets = SPIRV_BINDING_OFFSETS;
   deviceCreationDesc.adapterDesc = nullptr;
   deviceCreationDesc.allocationCallbacks = memAllocCallback;
@@ -90,20 +90,22 @@ bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
   m_sceneLoader = std::make_shared<SceneLoader>(&m_interface);
   m_sceneLoader->addEnvTexture("./Asset/hdrTex/graveyard_pathways_2k.hdr");
   // m_SceneFile = "./Asset/models/DamagedHelmet/DamagedHelmet.gltf";
-  // m_sceneLoader->loadScene(m_SceneFile);
-  m_SceneFile = "./Asset/models/ShaderBalls/ShaderBalls.gltf";
+  // m_SceneFile = "./Asset/models/ShaderBalls/ShaderBalls.gltf";
+  m_SceneFile = "./Asset/models/MetalRoughSpheres/MetalRoughSpheres.gltf";
   m_sceneLoader->loadScene(m_SceneFile);
+   
   createRayTracingPipeline();
   createPostProcessPipeline();
   createDescriptorSets();
+  m_denoiser = std::make_shared<MTXDenoiser>(this);
+  m_denoiser->init();
   createRayTracingTex(nri::Format::RGBA32_SFLOAT);
   createBLAS();
   createTLAS();
   updateDescriptorSets();
   m_windowManager.init(this);
 
-  m_denoiser = std::make_shared<MTXDenoiser>(this);
-  m_denoiser->init();
+
   MTX_INFO("----MTXRenderer initialized successfully-----")
   return InitUI(m_interface, m_interface, m_interface.getDevice(), swpFormat);
 }
@@ -234,7 +236,7 @@ void MTXRenderer::createRayTracingPipeline() {
   ::utils::ShaderCodeStorage storage;
   shaderLoader.addShader("RayTracingBox.rgen", "raygen",storage)
               .addShader("RayTracingBox.rmiss",  "miss",storage)
-              .addShader("envSample.rmiss","envMiss",storage)
+              // .addShader("envSample.rmiss","envMiss",storage)
               .addShader("RayTracingBox.rchit", "closest_hit",storage);
 
   nri::ShaderLibrary shaderLib = {};
@@ -325,7 +327,7 @@ void MTXRenderer::createPostProcessPipeline(){
 
 void MTXRenderer::createDescriptorSets() {
   nri::DescriptorPoolDesc desc{};
-  desc.storageTextureMaxNum = MTX_MAX_FRAME_COUNT;
+  desc.storageTextureMaxNum = 2048;
   desc.accelerationStructureMaxNum = 4096;
   desc.samplerMaxNum = 8;
   desc.bufferMaxNum = 1024;
@@ -551,6 +553,59 @@ void MTXRenderer::updateDescriptorSets() {
     bufferRangeUpdateDesc.descriptors = postRanges+i;
     bufferRangeUpdateDesc.baseDescriptor = 0;
     m_interface.UpdateDescriptorRanges(*m_postDescriptorSets[0],i,1,&bufferRangeUpdateDesc);
+  }
+  //update denoiser descriptor sets
+  {
+    //-----------update descs in denoiser rt pipeline -----------
+    //range1
+    nri::DescriptorRangeUpdateDesc updateDesc = {};
+    updateDesc.baseDescriptor = 0;
+    updateDesc.descriptorNum = 1;
+    updateDesc.descriptors = &(m_tlas->accView);
+    m_interface.UpdateDescriptorRanges(*m_denoiser->m_descriptorsets[Accel_Desc], 1, 1, &updateDesc);//accelerator structure
+    updateDesc.descriptors = &(m_rayTracingTexture->imageView);
+    m_interface.UpdateDescriptorRanges(*m_denoiser->m_descriptorsets[Accel_Desc], 0, 1, &updateDesc);//raytracing texture
+    updateDesc.descriptors = &(m_cameras.front().camUniformBuffer->bufView);
+    m_interface.UpdateDescriptorRanges(*m_denoiser->m_descriptorsets[Accel_Desc], 2, 1, &updateDesc);//camera uniform buffer
+
+    //range2
+    updateDesc.descriptors =&(materialBuffer->bufView);
+    m_interface.UpdateDescriptorRanges(*m_denoiser->m_descriptorsets[TraceOpaque_Common_Desc], 0, 1, &updateDesc);
+    updateDesc.descriptors = &(sceneVerticesBuffer->bufView);
+    m_interface.UpdateDescriptorRanges(*m_denoiser->m_descriptorsets[TraceOpaque_Common_Desc], 1, 1, &updateDesc);
+    updateDesc.descriptors = &(sceneIndicesBuffer->bufView);
+    m_interface.UpdateDescriptorRanges(*m_denoiser->m_descriptorsets[TraceOpaque_Common_Desc], 2, 1, &updateDesc);
+    updateDesc.descriptors = &(instanceInfoBuffer->bufView);
+    m_interface.UpdateDescriptorRanges(*m_denoiser->m_descriptorsets[TraceOpaque_Common_Desc], 3, 1, &updateDesc);
+    updateDesc.descriptors = &(m_sampler);
+    m_interface.UpdateDescriptorRanges(*m_denoiser->m_descriptorsets[TraceOpaque_Common_Desc], 4, 1, &updateDesc);
+
+    //range3
+    for (int i = 0; i < sceneTextures.size(); ++i) {//env texture
+      updateDesc.baseDescriptor = i;
+      updateDesc.descriptors = &(sceneTextures[i]->imageView);
+      m_interface.UpdateDescriptorRanges(*m_denoiser->m_descriptorsets[TraceOpaque_SceneTex_Desc], 0, 1, &updateDesc);
+    }
+
+    for (int i = 0; i < envTextures.size(); ++i) {
+      updateDesc.baseDescriptor = i;
+      updateDesc.descriptors = &(envTextures[i]->imageView);
+      m_interface.UpdateDescriptorRanges(*m_denoiser->m_descriptorsets[TraceOpaque_EnvTex_Desc], 0, 1, &updateDesc);
+    }
+
+    for (int i = 0; i < primitDatas.size(); ++i) {
+      updateDesc.baseDescriptor = i;
+      updateDesc.descriptors = &(primitDatas[i]->bufView);
+      m_interface.UpdateDescriptorRanges(*m_denoiser->m_descriptorsets[TraceOpaque_PrimitiveInfo_Desc], 0, 1, &updateDesc);
+    }
+    //----------------------update descs in denoiser cs pipeline--------------------
+    updateDesc.baseDescriptor = 0;
+    updateDesc.descriptorNum = 1;
+    updateDesc.descriptors =&(m_cameras.front().camUniformBuffer->bufView);
+    m_interface.UpdateDescriptorRanges(*m_denoiser->m_descriptorsets[Composition_Desc], 0, 1, &updateDesc);
+    updateDesc.descriptors = &(m_sampler);
+    m_interface.UpdateDescriptorRanges(*m_denoiser->m_descriptorsets[Composition_Desc],1,1,&updateDesc);
+    
   }
 }
 
@@ -797,29 +852,57 @@ void MTXRenderer::RenderFrame(uint32_t frameIndex) {
     barrierGroupDesc.textures = textureTransitions;
     m_interface.CmdBarrier(cmdBuf, barrierGroupDesc);
 
-    m_interface.CmdSetPipelineLayout(cmdBuf, *(m_rayTracingPipeline->pipelineLayout));
-    m_interface.CmdSetPipeline(cmdBuf, m_rayTracingPipeline->getPipeline());
-    for (uint32_t i = 0; i < helper::GetCountOf(m_descriptorSets); ++i) {
-      m_interface.CmdSetDescriptorSet(cmdBuf, i, *m_descriptorSets[i], nullptr);
+    if (m_rtType == rtType::offlineRT) {
+      m_interface.CmdSetPipelineLayout(cmdBuf, *(m_rayTracingPipeline->pipelineLayout));
+      m_interface.CmdSetPipeline(cmdBuf, m_rayTracingPipeline->getPipeline());
+      for (uint32_t i = 0; i < helper::GetCountOf(m_descriptorSets); ++i) {
+        m_interface.CmdSetDescriptorSet(cmdBuf, i, *m_descriptorSets[i], nullptr);
+      }
+
+      nri::DispatchRaysDesc desc = {};
+      desc.raygenShader = {m_shaderBindingTable->buf, 0, m_shaderGroupIdentifierSize,
+                          m_shaderGroupIdentifierSize};
+      desc.missShaders = {m_shaderBindingTable->buf, m_missShaderOffset, m_shaderGroupIdentifierSize,
+                          m_shaderGroupIdentifierSize};
+      desc.hitShaderGroups = {m_shaderBindingTable->buf, m_hitShaderGroupOffset,
+                              m_shaderGroupIdentifierSize, m_shaderGroupIdentifierSize};
+      desc.x = (uint16_t) GetWindowResolution().x;
+      desc.y = (uint16_t) GetWindowResolution().y;
+      desc.z = 1;
+      m_constant.accumFrameCount = m_cameras.front().isDirty ? 0 : m_constant.accumFrameCount;
+      m_constant.maxBounce = m_maxBounce;
+      m_interface.CmdSetRootConstants(cmdBuf, 0, &m_constant, sizeof(MtxRayTracingPushConstant));
+      if (m_constant.accumFrameCount < m_constant.maxSampleCount) {
+        m_interface.CmdDispatchRays(cmdBuf, desc);
+        m_constant.accumFrameCount++;
+      }
+
+    } else if (m_rtType == rtType::realTimeRT) {
+      m_interface.CmdSetPipelineLayout(cmdBuf, *(m_denoiser->m_pipelines[TraceOpaque]->pipelineLayout));
+      m_interface.CmdSetPipeline(cmdBuf, m_denoiser->m_pipelines[TraceOpaque]->getPipeline());
+      m_interface.CmdSetDescriptorSet(cmdBuf, 0, *m_denoiser->m_descriptorsets[Accel_Desc], nullptr);
+      m_interface.CmdSetDescriptorSet(cmdBuf, 1, *m_denoiser->m_descriptorsets[TraceOpaque_Common_Desc], nullptr);
+      m_interface.CmdSetDescriptorSet(cmdBuf, 2, *m_denoiser->m_descriptorsets[TraceOpaque_SceneTex_Desc], nullptr);
+      m_interface.CmdSetDescriptorSet(cmdBuf, 3, *m_denoiser->m_descriptorsets[TraceOpaque_EnvTex_Desc], nullptr);
+      m_interface.CmdSetDescriptorSet(cmdBuf, 4, *m_denoiser->m_descriptorsets[TraceOpaque_PrimitiveInfo_Desc], nullptr);
+      m_interface.CmdSetDescriptorSet(cmdBuf, 5, *m_denoiser->m_descriptorsets[TraceOpaque_DenoiseRT_Desc],nullptr);
+      nri::DispatchRaysDesc desc = {};
+      desc.raygenShader = {m_denoiser->m_shaderBindingTable->buf, 0, m_denoiser->m_shaderGroupIdentifierSize,
+                           m_denoiser->m_shaderGroupIdentifierSize};
+      desc.missShaders = {m_denoiser->m_shaderBindingTable->buf, m_denoiser->m_missShaderOffset, m_denoiser->m_shaderGroupIdentifierSize,
+                          m_denoiser->m_shaderGroupIdentifierSize};
+      desc.missShaders = {m_denoiser->m_shaderBindingTable->buf, m_denoiser->m_hitShaderOffset, m_denoiser->m_shaderGroupIdentifierSize,
+                          m_denoiser->m_shaderGroupIdentifierSize};
+      desc.x = (uint16_t) GetWindowResolution().x;
+      desc.y = (uint16_t) GetWindowResolution().y;
+      desc.z = 1;
+      m_constant.accumFrameCount = m_cameras.front().isDirty ? 0 : m_constant.accumFrameCount;
+      m_constant.maxBounce = m_maxBounce;
+      m_interface.CmdSetRootConstants(cmdBuf, 0, &m_constant, sizeof(MtxRayTracingPushConstant));
+      m_interface.CmdDispatchRays(cmdBuf, desc);
+      m_constant.accumFrameCount ++;
     }
 
-    nri::DispatchRaysDesc desc = {};
-    desc.raygenShader = {m_shaderBindingTable->buf, 0, m_shaderGroupIdentifierSize,
-                         m_shaderGroupIdentifierSize};
-    desc.missShaders = {m_shaderBindingTable->buf, m_missShaderOffset, m_shaderGroupIdentifierSize,
-                        m_shaderGroupIdentifierSize};
-    desc.hitShaderGroups = {m_shaderBindingTable->buf, m_hitShaderGroupOffset,
-                            m_shaderGroupIdentifierSize, m_shaderGroupIdentifierSize};
-    desc.x = (uint16_t) GetWindowResolution().x;
-    desc.y = (uint16_t) GetWindowResolution().y;
-    desc.z = 1;
-    m_constant.accumFrameCount = m_cameras.front().isDirty ? 0 : m_constant.accumFrameCount;
-    m_constant.maxBounce = m_maxBounce;
-    m_interface.CmdSetRootConstants(cmdBuf, 0, &m_constant, sizeof(MtxRayTracingPushConstant));
-    if (m_constant.accumFrameCount < m_constant.maxSampleCount) {
-      m_interface.CmdDispatchRays(cmdBuf, desc);
-      m_constant.accumFrameCount++;
-    }
 /*-------------------ray tracing end,post process begin---------------------------------*/
 
     textureTransitions[1].before = textureTransitions[1].after;

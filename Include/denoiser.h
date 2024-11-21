@@ -8,6 +8,7 @@
 namespace MTX{
 class MTXRenderer;
 class MtxTexture;
+class MtxBuffer;
 class  MtxPipeline;
 enum DenoiseRT {
   VIEWZ,
@@ -24,16 +25,10 @@ enum DenoiseRT {
   Unfiltered_Diff,
   Unfiltered_Spec,
   Unfiltered_Translucency,
-  Validation,
   Composed,
-  DlssOutput,
-  PreFinal,
-  Final,
   // History
  ComposedDiff,
  ComposedSpec_ViewZ,
- TaaHistory,
- TaaHistoryPrev,
   RT_COUNT
 };
 
@@ -97,8 +92,14 @@ enum DenoisePipeline {
 };
 
 enum DescriptorSetType {
-    Common,
-
+  Accel_Desc,
+  TraceOpaque_Common_Desc,
+  TraceOpaque_SceneTex_Desc,
+  TraceOpaque_EnvTex_Desc,
+  TraceOpaque_PrimitiveInfo_Desc,
+  TraceOpaque_DenoiseRT_Desc,
+  Composition_Desc,
+  DescType_COUNT
 };
 
 
@@ -109,21 +110,26 @@ public:
     void destroy();
     void createTexture();
     void createPipeline();
-    void  createDescritptors();
-
-
+    void createDescriptors();
 
    private:
-    nrd::ReblurSettings                      m_reblurSettings;
-    nrd::SigmaSettings                       m_sigmaSettings;
-    nrd::RelaxSettings                       m_relaxSettings;
-    MTXRenderer*                             m_renderer;
-    std::unique_ptr<nrd::Integration>        m_integration;
-    std::vector<std::shared_ptr<MtxTexture>> m_userTexturePool;
+    friend class MTXRenderer;
+    nrd::ReblurSettings                       m_reblurSettings;
+    nrd::SigmaSettings                        m_sigmaSettings;
+    nrd::RelaxSettings                        m_relaxSettings;
+    MTXRenderer*                              m_renderer;
+    std::unique_ptr<nrd::Integration>         m_integration;
+    std::vector<std::shared_ptr<MtxTexture>>  m_userTexturePool;
     std::vector<std::shared_ptr<MtxPipeline>> m_pipelines;
-    nri::PipelineLayout*                       m_pipelineLayout;
+    std::shared_ptr<MtxBuffer>                m_shaderBindingTable;
+    uint64_t                                  m_shaderGroupIdentifierSize;
+    uint64_t                                  m_missShaderOffset;
+    uint64_t                                  m_hitShaderOffset;
+    std::vector<nri::Descriptor*>             m_descriptors;
+    std::vector<nri::DescriptorSet*>          m_descriptorsets;
+    nri::PipelineLayout*                      m_rtLayout;
+    nri::PipelineLayout*                      m_csLayout;
 };
-
 }// namespace MTX
 
 

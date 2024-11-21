@@ -41,6 +41,10 @@ public:
   nri::AllocationCallbacks memAllocCallback= {};
 
  private:
+  enum class rtType {
+    realTimeRT,
+    offlineRT
+  };
   friend  class MTXDenoiser;
   MTXInterface                                   m_interface = {};
   nri::SwapChain*                                 m_swapChain = nullptr;
@@ -87,7 +91,9 @@ public:
   uint64_t m_hitShaderGroupOffset = 0;
   std::vector<std::vector<int>> m_shaderTypeCount;
   uint32_t m_threadNum = 12;
-  uint32_t m_maxBounce = 6;
+  uint32_t                      m_maxBounce = 6;
+  public:
+  rtType   m_rtType = rtType::offlineRT;
 };
 }// namespace MTX
 

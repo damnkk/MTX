@@ -91,7 +91,7 @@ std::shared_ptr<MtxBuffer> BufferAllocator::allocateBuffer(const MtxBufferAllocI
   nri::MemoryDesc bufferMemoryDesc = {};
   _gfxInterface->GetBufferMemoryDesc(_gfxInterface->getDevice(),allocInfo._desc,allocInfo._memLocation,bufferMemoryDesc);
   nri::AllocateMemoryDesc desc{};
-  desc.size = allocInfo._desc.size;
+  desc.size = bufferMemoryDesc.size;
   desc.type = bufferMemoryDesc.type;
   MTX_CHECK(_gfxInterface->AllocateMemory(_gfxInterface->getDevice(), desc, buffer->mem));
   const nri::BufferMemoryBindingDesc bufferMemoryBindingDesc = {buffer->mem, buffer->buf, 0};
