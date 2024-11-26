@@ -54,6 +54,8 @@ add_custom_target (${PROJECT_NAME}_Shaders ALL
                 -I "External/NRD/External"
                 -D COMPILER_DXC
                 -D VULKAN
+                -D NRD_NORMAL_ENCODING=${NRD_NORMAL_ENCODING}
+                -D NRD_ROUGHNESS_ENCODING=${NRD_ROUGHNESS_ENCODING}
   
             DEPENDS ShaderMake
             WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"

@@ -93,7 +93,7 @@ public:
   uint32_t m_threadNum = 12;
   uint32_t                      m_maxBounce = 6;
   public:
-  rtType   m_rtType = rtType::offlineRT;
+  rtType   m_rtType = rtType::realTimeRT;
 };
 }// namespace MTX
 

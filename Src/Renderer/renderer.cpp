@@ -891,7 +891,7 @@ void MTXRenderer::RenderFrame(uint32_t frameIndex) {
                            m_denoiser->m_shaderGroupIdentifierSize};
       desc.missShaders = {m_denoiser->m_shaderBindingTable->buf, m_denoiser->m_missShaderOffset, m_denoiser->m_shaderGroupIdentifierSize,
                           m_denoiser->m_shaderGroupIdentifierSize};
-      desc.missShaders = {m_denoiser->m_shaderBindingTable->buf, m_denoiser->m_hitShaderOffset, m_denoiser->m_shaderGroupIdentifierSize,
+      desc.hitShaderGroups = {m_denoiser->m_shaderBindingTable->buf, m_denoiser->m_hitShaderOffset, m_denoiser->m_shaderGroupIdentifierSize,
                           m_denoiser->m_shaderGroupIdentifierSize};
       desc.x = (uint16_t) GetWindowResolution().x;
       desc.y = (uint16_t) GetWindowResolution().y;
