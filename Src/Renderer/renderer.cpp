@@ -787,6 +787,12 @@ void MTXRenderer::updateCamera(float deltaTime) {
   // m_cameras.front().Update(mainCameraDesc, m_frameIndex);
   m_cameras.front().updateState(MainCameraDesc, m_frameIndex, m_Timer.GetFrameTime());
   CameraUniform uniform;
+  uniform.ViewToWorldPrev = m_cameras.front().state.mViewToWorld;
+  uniform.ViewToClipPrev = m_cameras.front().state.mViewToClip;
+  uniform.ClipToViewPrev = m_cameras.front().state.mClipToView;
+  uniform.ClipToWorldPrev = m_cameras.front().state.mClipToWorld;
+  uniform.WorldToClipPrev = m_cameras.front().state.mWorldToClip;
+
   uniform.ViewToWorld = m_cameras.front().state.mViewToWorld;
   uniform.ViewToClip = m_cameras.front().state.mViewToClip;
   uniform.ClipToView = m_cameras.front().state.mClipToView;

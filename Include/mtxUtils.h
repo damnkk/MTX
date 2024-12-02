@@ -29,6 +29,12 @@ struct RtInstanceInfo {
 };
 
 struct CameraUniform {
+  float4x4 ViewToClipPrev;
+  float4x4 ClipToViewPrev;
+  float4x4 WorldToViewPrev;
+  float4x4 ViewToWorldPrev;
+  float4x4 WorldToClipPrev;
+  float4x4 ClipToWorldPrev;
   float4x4 ViewToClip;
   float4x4 ClipToView;
   float4x4 WorldToView;

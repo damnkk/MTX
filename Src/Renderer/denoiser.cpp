@@ -146,16 +146,16 @@ void MTXDenoiser::createPipeline() {
   std::vector<nri::DescriptorRangeDesc> rangeDesc2 = {
       //set1 ---> material uniform/ vertices/ indices/ instance info/textureSampler/EnvAccelBuffer
       {0, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::RAY_TRACING_SHADERS },
-      {1, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER},
-      {2, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER},
-      {3, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER},
+      {1, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::RAY_TRACING_SHADERS},
+      {2, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::RAY_TRACING_SHADERS},
+      {3, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::RAY_TRACING_SHADERS},
       {4, 1, nri::DescriptorType::SAMPLER, nri::StageBits::RAY_TRACING_SHADERS},
       {5, 1, nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::RAY_TRACING_SHADERS,nri::DescriptorRangeBits::PARTIALLY_BOUND}
       };
   
       std::vector<nri::DescriptorRangeDesc> rangeDesc3 = {{
           //set2 ---> scene textures
-          0, static_cast<uint32_t>(m_renderer->m_sceneLoader->getSceneTextures().size()),nri::DescriptorType::TEXTURE, nri::StageBits::CLOSEST_HIT_SHADER,
+          0, static_cast<uint32_t>(m_renderer->m_sceneLoader->getSceneTextures().size()),nri::DescriptorType::TEXTURE, nri::StageBits::RAY_TRACING_SHADERS,
               nri::DescriptorRangeBits::VARIABLE_SIZED_ARRAY}};
       std::vector<nri::DescriptorRangeDesc> rangeDesc4={
             //set3 ---> env textures

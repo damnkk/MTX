@@ -30,14 +30,21 @@ struct EnvPayload {
 };
 
 struct CameraUniform {
+  float4x4 ViewToClipPrev;
+  float4x4 ClipToViewPrev;
+  float4x4 WorldToViewPrev;
+  float4x4 ViewToWorldPrev;
+  float4x4 WorldToClipPrev;
+  float4x4 ClipToWorldPrev;
   float4x4 ViewToClip;
   float4x4 ClipToView;
   float4x4 WorldToView;
   float4x4 ViewToWorld;
   float4x4 WorldToClip;
   float4x4 ClipToWorld;
+
+  //vec3 camera pos,and float fov
   float4 posFov;
-  // float2 placeHoader;
 };
 
 struct InstanceInfo {
@@ -154,3 +161,10 @@ struct Light{
   float intensity;
   int type;
 };
+
+//NRD flags
+// Material ID
+#define MATERIAL_ID_DEFAULT                 0.0
+#define MATERIAL_ID_METAL                   1.0
+#define MATERIAL_ID_HAIR                    2.0
+#define MATERIAL_ID_SELF_REFLECTION         3.0
