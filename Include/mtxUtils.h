@@ -44,6 +44,12 @@ struct CameraUniform {
 
   //vec3 camera pos,and float fov
   float4 camPosFov;
+
+  //light data
+  float4 sunBasisX;
+  float4 sunBasisY;
+  float4 sunDirection;
+  float  tanSunAngularRadius;
 };
 namespace utils {
 nri::AccessBits bufferUsageToAccess(nri::BufferUsageBits usage);

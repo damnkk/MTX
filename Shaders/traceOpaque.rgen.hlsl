@@ -53,6 +53,7 @@ struct GeometryProps
   float4 T;
   float2 uv;
   float hitT;
+  int mip;
   uint instanceIndex;
   uint materialIndex;
 };
@@ -76,12 +77,52 @@ struct MaterialProps
   float clearcoatRoughness;
   float transmission;
   float ior;
+  float3 Ldirect;
 
   float ax;
   float ay;
   bool unlit;
   bool tinwalled;
 };
+
+#define SKY_INTENSITY 1.0
+#define SUN_INTENSITY 10.0
+float3 GetSunIntensity(float3 v){
+  float b = dot(v,cameraUniform[0].sunDirection.xyz);
+  float d = length(v-cameraUniform[0].sunDirection.xyz*b);
+  float glow = saturate(1.015-d);
+  glow *= b*0.5+0.5;
+  glow *= 0.6;
+  float a = Math::Sqrt01(1.0-b*b)/b;
+  float sun = 1.0-Math::SmoothStep(cameraUniform[0].tanSunAngularRadius*0.9,cameraUniform[0].tanSunAngularRadius*0.9* 1.66 + 0.01, a);
+  sun *= float(b>0.0);
+  sun *= 1.0-Math::Pow01(1.0-v.z,4.85);
+  sun *= Math::SmoothStep(0.0,0.1,cameraUniform[0].sunDirection.z);
+  sun += glow;
+  float sunColor = lerp( float3( 1.0, 0.6, 0.3 ), float3( 1.0, 0.9, 0.7 ), Math::Sqrt01( cameraUniform[0].sunDirection.z ) );
+  sunColor *= sun;
+  sunColor *= Math::SmoothStep(-0.01,0.05,cameraUniform[0].sunDirection.z);
+  
+  return Color::FromGamma(sunColor)*SUN_INTENSITY;
+}
+
+float3 GetSkyIntensity( float3 v )
+{
+    float atmosphere = sqrt( 1.0 - saturate( v.z ) );
+
+    float scatter = pow( saturate( cameraUniform[0].sunDirection.z ), 1.0 / 15.0 );
+    scatter = 1.0 - clamp( scatter, 0.8, 1.0 );
+
+    float3 scatterColor = lerp( float3( 1.0, 1.0, 1.0 ), float3( 1.0, 0.3, 0.0 ) * 1.5, scatter );
+    float3 skyColor = lerp( float3( 0.2, 0.4, 0.8 ), float3( scatterColor ), atmosphere / 1.3 );
+    skyColor *= saturate( 1.0 + cameraUniform[0].sunDirection.z );
+
+    float ground = 0.5 + 0.5 * Math::SmoothStep( -1.0, 0.0, v.z );
+    skyColor *= ground;
+
+    return Color::FromGamma( skyColor ) * SKY_INTENSITY + GetSunIntensity( v );
+}
+
 
 float3 GetMotion( float3 X, float3 Xprev )
 {
@@ -116,7 +157,7 @@ float3 normalMap(float3 vertexNormal, float3 tagNormal) {
     CameraUniform camUnifor = cameraUniform[0];
     uint2 dispatchRaysIndex = DispatchRaysIndex().xy;
     uint2 dispatchraysDimensions = DispatchRaysDimensions().xy;
-    const float2 pixelCenter = float2(dispatchRaysIndex.xy) + pixelOffset;
+    const float2 pixelCenter = float2(dispatchRaysIndex.xy);
     float2 inUV = pixelCenter / float2(dispatchraysDimensions.xy);
     inUV.y = 1.0f - inUV.y;
     float2 NDC = inUV * 2.0 - 1.0;
@@ -150,6 +191,7 @@ float3 normalMap(float3 vertexNormal, float3 tagNormal) {
         geoProps.hitT = 1e5;
         geoProps.X = rayDesc.Origin + rayDesc.Direction * geoProps.hitT;
         geoProps.Xprev = geoProps.X;
+        geoProps.V = -rayDesc.Direction;
       }
       else{
         InstanceInfo instaInfo = instanceInfoBuffer[payLoad.instanceID];
@@ -239,8 +281,34 @@ float3 normalMap(float3 vertexNormal, float3 tagNormal) {
         // in the future, if we want paly with a dynamic scene(move object or deform object), we need 
         // to stage the last 3 matrixies for calculating the motion information.
         geoProps.Xprev = geoProps.X;
+        geoProps.V = -rayDesc.Direction;
+
+        float3 Ldirect = 0;
+        float NoL = saturate(dot(geoProps.N,cameraUniform[0].sunDirection.xyz));
+        float shadow =  Math::SmoothStep(0.03,0.1,NoL);
+        [branch]
+        if(shadow != 0.0){
+          float3 Csun = GetSunIntensity(cameraUniform[0].sunDirection.xyz);
+          float3 Csky = GetSkyIntensity(-geoProps.V);
+          bool hasHair = false;
+          if(hasHair){}
+          else{
+            float3 Cimp = lerp(Csky,Csun,Math::SmoothStep(0.0,0.2,matProps.roughness));
+            Cimp *= Math::SmoothStep(-0.01,0.05,cameraUniform[0].sunDirection.z);
+
+            float3 albedo,Rf0;
+            BRDF::ConvertBaseColorMetalnessToAlbedoRf0( matProps.albedo.xyz, matProps.metallic, albedo, Rf0 );
+
+            float3 Cdiff,Cspec;
+            BRDF::DirectLighting( geoProps.N, cameraUniform[0].sunDirection.xyz, geoProps.V, Rf0, matProps.roughness, Cdiff, Cspec );
+            Ldirect = Cdiff *albedo*Csun+Cspec*Cimp;
+            // Ldirect = Rf0;
+          }
+        }
+        Ldirect  *= shadow;
+        matProps.Ldirect = Ldirect;
       }
-      geoProps.V = -rayDesc.Direction;
+      
     }
 
     //write viewZ to storage
@@ -262,10 +330,12 @@ float3 normalMap(float3 vertexNormal, float3 tagNormal) {
     uint materialID = matProps.metallic<0.5? MATERIAL_ID_DEFAULT : MATERIAL_ID_METAL;
     normal_roughness_storage[DispatchRaysIndex().xy] = NRD_FrontEnd_PackNormalAndRoughness(geoProps.N, matProps.roughness,materialID);
     basecolor_metalness_storage[DispatchRaysIndex().xy] = float4(Color::ToSrgb(matProps.albedo), matProps.metallic);
-  
+    directlight_storage[DispatchRaysIndex().xy] = matProps.Ldirect;
+    emission_storage[DispatchRaysIndex().xy] = matProps.emission;
 
     outputImage[DispatchRaysIndex().xy] = float4(Rng::Hash::GetFloat(),Rng::Hash::GetFloat(),Rng::Hash::GetFloat(),1.0);
     if(payLoad.hitT<1e5){
-        outputImage[DispatchRaysIndex().xy] =  NRD_FrontEnd_PackNormalAndRoughness(geoProps.N, matProps.roughness,materialID);
+        outputImage[DispatchRaysIndex().xy] =  float4(float3(matProps.Ldirect),1.0);
+        // outputImage[DispatchRaysIndex().xy] =  float4(float3(float(payLoad.instanceID)/8.0,float(payLoad.instanceID)/8.0,float(payLoad.instanceID)/8.0),1.0);
     }
 }

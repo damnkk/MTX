@@ -96,6 +96,22 @@ void SceneLoader::traverse(const aiScene* sourceScene, SceneGraph& sceneGraph, a
   }
 }
 
+static nri::Format MakeSRGBFormat(nri::Format format) {
+  switch (format) {
+    case nri::Format::RGBA8_UNORM: return nri::Format::RGBA8_SRGB;
+
+    case nri::Format::BC1_RGBA_UNORM: return nri::Format::BC1_RGBA_SRGB;
+
+    case nri::Format::BC2_RGBA_UNORM: return nri::Format::BC2_RGBA_SRGB;
+
+    case nri::Format::BC3_RGBA_UNORM: return nri::Format::BC3_RGBA_SRGB;
+
+    case nri::Format::BC7_RGBA_UNORM: return nri::Format::BC7_RGBA_SRGB;
+
+    default: return format;
+  }
+}
+
 int      EmptyNameCount = 0;
 Material SceneLoader::convertAIMaterialToDescription(const aiMaterial* aiMat,
                                                      std::string       basePath) {
@@ -139,18 +155,17 @@ Material SceneLoader::convertAIMaterialToDescription(const aiMaterial* aiMat,
   if (aiMat->GetTexture(aiTextureType_DIFFUSE, 0, &texPath) == AI_SUCCESS) {
     std::string diffusePath = basePath + '/' + std::string(texPath.C_Str());
     ::utils::LoadTexture(diffusePath, utilTex);
+    utilTex.OverrideFormat(MakeSRGBFormat(utilTex.GetFormat()));
 
-    texAllocInfo._desc={
-      .type = nri::TextureType::TEXTURE_2D,
-      .usage = nri::TextureUsageBits::SHADER_RESOURCE,
-      .format = utilTex.GetFormat(),
-      .width = utilTex.GetWidth(),
-      .height = utilTex.GetHeight(),
-      .depth = utilTex.GetDepth(),
-      .mipNum = utilTex.GetMipNum(),
-      .layerNum = utilTex.layerNum,
-      .sampleNum = 1
-    };
+    texAllocInfo._desc = {.type = nri::TextureType::TEXTURE_2D,
+                          .usage = nri::TextureUsageBits::SHADER_RESOURCE,
+                          .format = utilTex.GetFormat(),
+                          .width = utilTex.GetWidth(),
+                          .height = utilTex.GetHeight(),
+                          .depth = utilTex.GetDepth(),
+                          .mipNum = utilTex.GetMipNum(),
+                          .layerNum = utilTex.layerNum,
+                          .sampleNum = 1};
     // =nri::TextureDesc(utilTex.GetFormat(), utilTex.GetWidth(), utilTex.GetHeight(),
     //                    utilTex.GetMipNum(), 1, nri::TextureUsageBits::SHADER_RESOURCE);
     texAllocInfo._name = std::string(texPath.C_Str());
@@ -182,6 +197,7 @@ Material SceneLoader::convertAIMaterialToDescription(const aiMaterial* aiMat,
   if (aiMat->GetTexture(aiTextureType_DIFFUSE_ROUGHNESS, 0, &texPath) == AI_SUCCESS) {
     std::string mrTex = basePath + '/' + std::string(texPath.C_Str());
     ::utils::LoadTexture(mrTex, utilTex);
+    utilTex.OverrideFormat(MakeSRGBFormat(utilTex.GetFormat()));
     texAllocInfo._desc = {
      .type = nri::TextureType::TEXTURE_2D,
       .usage = nri::TextureUsageBits::SHADER_RESOURCE,
@@ -202,6 +218,7 @@ Material SceneLoader::convertAIMaterialToDescription(const aiMaterial* aiMat,
   if (aiMat->GetTexture(aiTextureType_LIGHTMAP, 0, &texPath) == AI_SUCCESS) {
     std::string oaTex = basePath + '/' + std::string(texPath.C_Str());
     ::utils::LoadTexture(oaTex, utilTex);
+    utilTex.OverrideFormat(MakeSRGBFormat(utilTex.GetFormat()));
     texAllocInfo._desc ={
       .type = nri::TextureType::TEXTURE_2D,
       .usage = nri::TextureUsageBits::SHADER_RESOURCE,
@@ -372,17 +389,16 @@ void SceneLoader::addEnvTexture(std::string path) {
   ::utils::Texture    utilTex;
   ::utils::LoadTexture(path, utilTex);
   texAllocInfo._name = utilTex.name;
-  texAllocInfo._desc ={
-    .type = nri::TextureType::TEXTURE_2D,
-      .usage = nri::TextureUsageBits::SHADER_RESOURCE,
-      .format = utilTex.GetFormat(),
-      .width = utilTex.GetWidth(),
-      .height = utilTex.GetHeight(),
-      .depth = utilTex.GetDepth(),
-      .mipNum = utilTex.GetMipNum(),
-      .layerNum = utilTex.layerNum,
-      .sampleNum = 1
-  };
+  texAllocInfo._desc = {.type = nri::TextureType::TEXTURE_2D,
+                        .usage = nri::TextureUsageBits::SHADER_RESOURCE,
+                        .format = utilTex.GetFormat(),
+                        .width = utilTex.GetWidth(),
+                        .height = utilTex.GetHeight(),
+                        .depth = utilTex.GetDepth(),
+                        .mipNum = utilTex.GetMipNum(),
+                        .layerNum = utilTex.layerNum,
+                        .sampleNum = 1};
+
   texAllocInfo._sourceData = &utilTex;
   auto envTex = m_interface->allocateTexture(texAllocInfo);
   m_envTextures.push_back(envTex);

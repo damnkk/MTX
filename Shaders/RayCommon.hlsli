@@ -45,6 +45,12 @@ struct CameraUniform {
 
   //vec3 camera pos,and float fov
   float4 posFov;
+  //light data
+  float4 sunBasisX;
+  float4 sunBasisY;
+  float4 sunDirection;
+  
+  float  tanSunAngularRadius;
 };
 
 struct InstanceInfo {

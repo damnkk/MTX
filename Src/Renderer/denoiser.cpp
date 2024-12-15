@@ -76,11 +76,11 @@ void MTXDenoiser::createTexture() {
     info = getTextureAllocInfo("Texture::BaseColor_Metalness",nri::TextureUsageBits::SHADER_RESOURCE|nri::TextureUsageBits::SHADER_RESOURCE_STORAGE,nri::Format::RGBA8_SRGB,
       m_renderer->GetWindowResolution());
     m_userTexturePool[BaseColor_Metalness] = m_renderer->getInterface()->allocateTexture(info);
-    info = getTextureAllocInfo("Texture::DirectLighting",nri::TextureUsageBits::SHADER_RESOURCE|nri::TextureUsageBits::SHADER_RESOURCE_STORAGE,nri::Format::RGBA16_SFLOAT,
-      m_renderer->GetWindowResolution());
+    info = getTextureAllocInfo("Texture::DirectLighting", nri::TextureUsageBits::SHADER_RESOURCE | nri::TextureUsageBits::SHADER_RESOURCE_STORAGE,
+                               nri::Format::R11_G11_B10_UFLOAT, m_renderer->GetWindowResolution());
     m_userTexturePool[DirectLighting] = m_renderer->getInterface()->allocateTexture(info);
-    info = getTextureAllocInfo("Texture::DirectEmission",nri::TextureUsageBits::SHADER_RESOURCE|nri::TextureUsageBits::SHADER_RESOURCE_STORAGE,nri::Format::RGBA16_SFLOAT,
-      m_renderer->GetWindowResolution());
+    info = getTextureAllocInfo("Texture::DirectEmission", nri::TextureUsageBits::SHADER_RESOURCE | nri::TextureUsageBits::SHADER_RESOURCE_STORAGE,
+                               nri::Format::R11_G11_B10_UFLOAT, m_renderer->GetWindowResolution());
     m_userTexturePool[DirectEmission] = m_renderer->getInterface()->allocateTexture(info);
     info = getTextureAllocInfo("Texture::Shadow",nri::TextureUsageBits::SHADER_RESOURCE|nri::TextureUsageBits::SHADER_RESOURCE_STORAGE,nri::Format::RGBA8_UNORM,
       m_renderer->GetWindowResolution());
@@ -162,30 +162,24 @@ void MTXDenoiser::createPipeline() {
       {0, static_cast<uint32_t>(m_renderer->m_sceneLoader->getEnvTextures().size()),nri::DescriptorType::TEXTURE, nri::StageBits::RAY_TRACING_SHADERS, 
       nri::DescriptorRangeBits::VARIABLE_SIZED_ARRAY}
       };
-          
-      std::vector<nri::DescriptorRangeDesc> rangeDesc5={
-      //set4 ---> primitives info
-      {0, static_cast<uint32_t>(m_renderer->m_sceneLoader->getMeshes().size()),nri::DescriptorType::STRUCTURED_BUFFER, nri::StageBits::CLOSEST_HIT_SHADER,
-        nri::DescriptorRangeBits::VARIABLE_SIZED_ARRAY},
+
+      std::vector<nri::DescriptorRangeDesc> rangeDesc5 = {
+          //set4 ---> primitives info
+          {0, static_cast<uint32_t>(m_renderer->m_sceneLoader->getMeshes().size()), nri::DescriptorType::STRUCTURED_BUFFER,
+           nri::StageBits::RAY_TRACING_SHADERS, nri::DescriptorRangeBits::VARIABLE_SIZED_ARRAY},
       };
 
-  std::vector<nri::DescriptorRangeDesc> rangeDesc6 = {
-//shader read only and shader storage image
-    {0,31,nri::DescriptorType::TEXTURE,nri::StageBits::RAY_TRACING_SHADERS,nri::DescriptorRangeBits::PARTIALLY_BOUND},
-    {0,31,nri::DescriptorType::STORAGE_TEXTURE,nri::StageBits::RAY_TRACING_SHADERS,nri::DescriptorRangeBits::PARTIALLY_BOUND}
-  };
+      std::vector<nri::DescriptorRangeDesc> rangeDesc6 = {
+          //shader read only and shader storage image
+          {0, 31, nri::DescriptorType::TEXTURE, nri::StageBits::RAY_TRACING_SHADERS, nri::DescriptorRangeBits::PARTIALLY_BOUND},
+          {0, 31, nri::DescriptorType::STORAGE_TEXTURE, nri::StageBits::RAY_TRACING_SHADERS, nri::DescriptorRangeBits::PARTIALLY_BOUND}};
 
-  nri::RootConstantDesc rootCostantDesc = {0,sizeof(MTXRenderer::MtxRayTracingPushConstant),nri::StageBits::RAY_TRACING_SHADERS};
+      nri::RootConstantDesc rootCostantDesc = {0, sizeof(MTXRenderer::MtxRayTracingPushConstant), nri::StageBits::RAY_TRACING_SHADERS};
 
-  nri::DescriptorSetDesc descriptorSetDescs[] = {
-    {0, rangeDesc1.data(), ::helper::GetCountOf(rangeDesc1), nullptr, 0},
-    {1, rangeDesc2.data(), ::helper::GetCountOf(rangeDesc2), nullptr, 0},
-    {2, rangeDesc3.data(), ::helper::GetCountOf(rangeDesc3), nullptr, 0},
-    {3, rangeDesc4.data(), ::helper::GetCountOf(rangeDesc4), nullptr, 0},
-    {4, rangeDesc5.data(), ::helper::GetCountOf(rangeDesc5), nullptr, 0},
-    {5, rangeDesc6.data(), ::helper::GetCountOf(rangeDesc6), nullptr, 0}
-  };
-
+      nri::DescriptorSetDesc descriptorSetDescs[] = {
+          {0, rangeDesc1.data(), ::helper::GetCountOf(rangeDesc1), nullptr, 0}, {1, rangeDesc2.data(), ::helper::GetCountOf(rangeDesc2), nullptr, 0},
+          {2, rangeDesc3.data(), ::helper::GetCountOf(rangeDesc3), nullptr, 0}, {3, rangeDesc4.data(), ::helper::GetCountOf(rangeDesc4), nullptr, 0},
+          {4, rangeDesc5.data(), ::helper::GetCountOf(rangeDesc5), nullptr, 0}, {5, rangeDesc6.data(), ::helper::GetCountOf(rangeDesc6), nullptr, 0}};
 
   nri:nri::PipelineLayoutDesc layoutDesc {};
   layoutDesc.descriptorSets = descriptorSetDescs;

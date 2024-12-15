@@ -90,8 +90,8 @@ bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
   m_sceneLoader = std::make_shared<SceneLoader>(&m_interface);
   m_sceneLoader->addEnvTexture("./Asset/hdrTex/graveyard_pathways_2k.hdr");
   // m_SceneFile = "./Asset/models/DamagedHelmet/DamagedHelmet.gltf";
-  // m_SceneFile = "./Asset/models/ShaderBalls/ShaderBalls.gltf";
-  m_SceneFile = "./Asset/models/MetalRoughSpheres/MetalRoughSpheres.gltf";
+  m_SceneFile = "./Asset/models/ShaderBalls/ShaderBalls.gltf";
+  // m_SceneFile = "./Asset/models/MetalRoughSpheres/MetalRoughSpheres.gltf";
   m_sceneLoader->loadScene(m_SceneFile);
    
   createRayTracingPipeline();
@@ -803,6 +803,11 @@ void MTXRenderer::updateCamera(float deltaTime) {
   uniform.camPosFov.y = m_cameras.front().state.position.y;
   uniform.camPosFov.z = m_cameras.front().state.position.z;
   uniform.camPosFov.w = 5.0f;
+
+  uniform.sunDirection = float4(-0.593f, -0.38511f, 0.707f, 0.0f);
+  uniform.sunBasisX = float4(-0.7939f, -0.13378f, -0.59302f, 0.0f);
+  uniform.sunBasisY = float4(0.13378f, -0.91311f, -0.38511f, 0.0f);
+  uniform.tanSunAngularRadius = 0.03f;
 
   void* data =
       m_interface.MapBuffer(*(m_cameras.front().camUniformBuffer->buf), 0, sizeof(CameraUniform));
