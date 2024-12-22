@@ -85,6 +85,21 @@ struct MaterialProps
   bool tinwalled;
 };
 
+float2 GetConeAngleFromAngularRadius( float mip, float tanConeAngle )
+{
+    // In any case, we are limited by the output resolution
+    tanConeAngle = max( tanConeAngle, cameraUniform[0].tanPixelAngularRadius );
+
+    return float2( mip, tanConeAngle );
+}
+
+float2 GetConeAngleFromRoughness( float mip, float roughness )
+{
+    float tanConeAngle = roughness * roughness * 0.05; // TODO: tweaked to be accurate and give perf boost
+
+    return GetConeAngleFromAngularRadius( mip, tanConeAngle );
+}
+
 #define SKY_INTENSITY 1.0
 #define SUN_INTENSITY 10.0
 float3 GetSunIntensity(float3 v){
@@ -150,6 +165,76 @@ float3 normalMap(float3 vertexNormal, float3 tagNormal) {
   return normalize(tagent * tagNormal.x + bitTagent * tagNormal.y +
                    vertexNormal * tagNormal.z);
 }
+
+GeometryProps CaseRay(float origin, float3 direction, float Tmin, float Tmax, float2 mipAndCone,RaytracingAccelerationStructure accelerationStructure,  uint instanceInclusionMask, uint rayFlags){
+  GeometryProps res = ( GeometryProps )0;
+  res.mip = mipAndCone.x;
+  RayDesc rayDesc;
+  rayDesc.Origin = origin;
+  rayDesc.Direction = direction.xyz;
+  rayDesc.TMin = 0.0001;
+  rayDesc.TMax = 100000;
+
+  uint rayFlags = RAY_FLAG_FORCE_OPAQUE;
+  uint instanceInclusionMask = 0xff;
+  uint rayContributionToHitGroupIndex = 0;
+  uint multiplierForGeometryContributionToHitGroupIndex = 1;
+  uint missShaderIndex = 0;
+
+  PtPayload payLoad;
+  payLoad.seed = Rng::Hash::GetUint();
+  payLoad.hitT = 1e5;
+  payLoad.primitiveID = -1;
+  payLoad.instanceID = -1;
+  payLoad.instanceCustomIndex = -1;
+  payLoad.baryCoord = float2(0.0, 0.0);
+  TraceRay(topLevelAS,rayFlags,instanceInclusionMask,rayContributionToHitGroupIndex,
+  multiplierForGeometryContributionToHitGroupIndex,missShaderIndex,rayDesc,payLoad);
+   if(payLoad.hitT==1e5){
+      res.hitT = 1e5;
+      res.X = rayDesc.Origin + rayDesc.Direction * res.hitT;
+      res.Xprev = res.X;
+      res.V = -rayDesc.Direction;
+   }else{
+      res.hitT = payLoad.hitT;
+      uint instanceIndex = payLoad.instanceID;
+      res.instanceIndex = instanceIndex;
+      InstanceInfo instaInfo = instanceInfoBuffer[payLoad.instanceID];
+      float3x3 mObjectToWorld = ( float3x3 )payLoad.objectToWorld;
+      float3 barycentrics = float3(1.0 - payLoad.baryCoord.x - payLoad.baryCoord.y,payLoad.baryCoord.xy);
+      uint u0 = indexBuffer[instaInfo.indexOffset + 3 * payLoad.primitiveID + 0];
+      uint u1 = indexBuffer[instaInfo.indexOffset + 3 * payLoad.primitiveID + 1];
+      uint u2 = indexBuffer[instaInfo.indexOffset + 3 * payLoad.primitiveID + 2];
+
+      Vertex v0 = vertexBuffer[instaInfo.vertexOffset + u0];
+      Vertex v1 = vertexBuffer[instaInfo.vertexOffset + u1];
+      Vertex v2 = vertexBuffer[instaInfo.vertexOffset + u2];
+      //normal
+      float3  vertNormal = v0.normal * barycentrics.x + v1.normal * barycentrics.y + v2.normal * barycentrics.z;
+      float flip = dot(normalize(vertNormal), rayDesc.Direction)>0?-1.0:1.0;
+      vertNormal = Geometry::RotateVector((float3x3)payLoad.objectToWorld, vertNormal);
+      vertNormal = normalize(vertNormal*flip);
+      res.N = -vertNormal;
+
+      res.uv = v0.texcoord * barycentrics.x + v1.texcoord * barycentrics.y +
+                v2.texcoord * barycentrics.z;
+
+      float3 T = v0.tangent.xyz * barycentrics.x + v1.tangent.xyz * barycentrics.y + v2.tangent.xyz * barycentrics.z; 
+      T = normalize(Geometry::RotateVector((float3x3)payLoad.objectToWorld, T));
+      res.T = float4(T, 1.0);
+      res.X = origin + direction * res.hitT;
+      res.Xprev = res.X;
+      res.V = -rayDesc.Direction;
+   }
+  return res;
+}
+
+MaterialProps GetMaterialProps(GeometryProps geometryProps, bool viewIndependentLightingModel = false ){
+    MaterialProps matProps = ( MaterialProps )0;
+    return matProps;
+}
+
+
 
 [shader("raygeneration")] void raygen() {
     Rng::Hash::Initialize(DispatchRaysIndex().xy,RTConstant.curFrameCount);
@@ -278,10 +363,19 @@ float3 normalMap(float3 vertexNormal, float3 tagNormal) {
         geoProps.T =float4(vertTagent,1.0);
         geoProps.X = vertPosition;
         // we update the previous position to the current position,cuz our scene is static currently,
-        // in the future, if we want paly with a dynamic scene(move object or deform object), we need 
+        // in the future, if we want play with a dynamic scene(move object or deform object), we need 
         // to stage the last 3 matrixies for calculating the motion information.
         geoProps.Xprev = geoProps.X;
         geoProps.V = -rayDesc.Direction;
+
+        float2 mipAndCone = GetConeAngleFromRoughness(0.0,0.0);
+        geoProps.mip = mipAndCone.x;
+        float NoRay = abs(dot(rayDir.xyz,vertNormal));
+        float a = payLoad.hitT *mipAndCone.y;
+        a *= Math::PositiveRcp(NoRay);
+        float mip = log2(a);
+        mip = max(mip,0.0);
+        geoProps.mip = mip;
 
         float3 Ldirect = 0;
         float NoL = saturate(dot(geoProps.N,cameraUniform[0].sunDirection.xyz));
@@ -308,7 +402,6 @@ float3 normalMap(float3 vertexNormal, float3 tagNormal) {
         Ldirect  *= shadow;
         matProps.Ldirect = Ldirect;
       }
-      
     }
 
     //write viewZ to storage
@@ -336,6 +429,5 @@ float3 normalMap(float3 vertexNormal, float3 tagNormal) {
     outputImage[DispatchRaysIndex().xy] = float4(Rng::Hash::GetFloat(),Rng::Hash::GetFloat(),Rng::Hash::GetFloat(),1.0);
     if(payLoad.hitT<1e5){
         outputImage[DispatchRaysIndex().xy] =  float4(float3(matProps.Ldirect),1.0);
-        // outputImage[DispatchRaysIndex().xy] =  float4(float3(float(payLoad.instanceID)/8.0,float(payLoad.instanceID)/8.0,float(payLoad.instanceID)/8.0),1.0);
     }
 }

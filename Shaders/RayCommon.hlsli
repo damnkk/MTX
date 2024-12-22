@@ -51,6 +51,7 @@ struct CameraUniform {
   float4 sunDirection;
   
   float  tanSunAngularRadius;
+  float tanPixelAngularRadius;
 };
 
 struct InstanceInfo {

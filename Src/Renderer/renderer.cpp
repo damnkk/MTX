@@ -808,6 +808,7 @@ void MTXRenderer::updateCamera(float deltaTime) {
   uniform.sunBasisX = float4(-0.7939f, -0.13378f, -0.59302f, 0.0f);
   uniform.sunBasisY = float4(0.13378f, -0.91311f, -0.38511f, 0.0f);
   uniform.tanSunAngularRadius = 0.03f;
+  uniform.tanPixelAngularRadius = tan(0.5f * radians(uniform.camPosFov.w) / this->GetWindowResolution().x);
 
   void* data =
       m_interface.MapBuffer(*(m_cameras.front().camUniformBuffer->buf), 0, sizeof(CameraUniform));

@@ -50,6 +50,8 @@ struct CameraUniform {
   float4 sunBasisY;
   float4 sunDirection;
   float  tanSunAngularRadius;
+
+  float tanPixelAngularRadius;
 };
 namespace utils {
 nri::AccessBits bufferUsageToAccess(nri::BufferUsageBits usage);
