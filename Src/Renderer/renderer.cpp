@@ -89,8 +89,8 @@ bool MTXRenderer::Initialize(nri::GraphicsAPI graphicsAPI) {
   createSwapChain(swpFormat);
   m_sceneLoader = std::make_shared<SceneLoader>(&m_interface);
   m_sceneLoader->addEnvTexture("./Asset/hdrTex/graveyard_pathways_2k.hdr");
-  // m_SceneFile = "./Asset/models/DamagedHelmet/DamagedHelmet.gltf";
-  m_SceneFile = "./Asset/models/ShaderBalls/ShaderBalls.gltf";
+  m_SceneFile = "D:/repo/DogEngine/models/Camera_01_2k/Camera_01_2k.gltf";
+  // m_SceneFile = "./Asset/models/ShaderBalls/ShaderBalls.gltf";
   // m_SceneFile = "./Asset/models/MetalRoughSpheres/MetalRoughSpheres.gltf";
   m_sceneLoader->loadScene(m_SceneFile);
    
